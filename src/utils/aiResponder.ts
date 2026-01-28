@@ -143,6 +143,8 @@ async function generateAPIResponse(
   conversationHistory: Message[],
   lastQuestion: string
 ): Promise<string> {
+  console.log('🔄 Appel API:', API_URL);
+
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: {
@@ -165,11 +167,16 @@ async function generateAPIResponse(
     }),
   });
 
+  console.log('📡 Statut réponse:', response.status);
+
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    const errorText = await response.text();
+    console.error('❌ Erreur API:', errorText);
+    throw new Error(`API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log('✅ Réponse reçue:', data);
   return data.response;
 }
 

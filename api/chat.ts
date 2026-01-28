@@ -1,4 +1,6 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+export const config = {
+  runtime: 'edge',
+};
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -23,27 +25,38 @@ interface RequestBody {
   lastQuestion: string;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+export default async function handler(request: Request): Promise<Response> {
+  // CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'GROQ_API_KEY not configured' });
+    console.error('GROQ_API_KEY not found in environment');
+    return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
-    const { persona, conversationHistory, lastQuestion } = req.body as RequestBody;
+    const body: RequestBody = await request.json();
+    const { persona, conversationHistory, lastQuestion } = body;
 
     // Construire le prompt système
     const systemPrompt = `Tu es ${persona.name}, ${persona.age} ans, un(e) lycéen(ne) français(e).
@@ -72,26 +85,30 @@ IMPORTANT: Réponds UNIQUEMENT en français, de manière très naturelle et déc
       { role: 'system', content: systemPrompt }
     ];
 
-    // Ajouter l'historique de conversation
-    for (const msg of conversationHistory.slice(-10)) { // Garder les 10 derniers messages
-      messages.push({
-        role: msg.isFromAI ? 'assistant' : 'user',
-        content: msg.content
-      });
+    // Ajouter l'historique de conversation (10 derniers messages)
+    if (conversationHistory && conversationHistory.length > 0) {
+      for (const msg of conversationHistory.slice(-10)) {
+        messages.push({
+          role: msg.isFromAI ? 'assistant' : 'user',
+          content: msg.content
+        });
+      }
     }
 
     // Ajouter la dernière question
     messages.push({ role: 'user', content: lastQuestion });
 
+    console.log('Calling Groq API with', messages.length, 'messages');
+
     // Appel à Groq API
-    const response = await fetch(GROQ_API_URL, {
+    const groqResponse = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant', // Modèle gratuit et rapide
+        model: 'llama-3.1-8b-instant',
         messages,
         max_tokens: 150,
         temperature: 0.9,
@@ -99,23 +116,33 @@ IMPORTANT: Réponds UNIQUEMENT en français, de manière très naturelle et déc
       }),
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Groq API error:', error);
-      return res.status(500).json({ error: 'LLM API error' });
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      console.error('Groq API error:', groqResponse.status, errorText);
+      return new Response(JSON.stringify({ error: 'LLM API error', details: errorText }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    const data = await response.json();
-    const aiResponse = data.choices[0]?.message?.content || "Je sais pas trop quoi dire là";
+    const data = await groqResponse.json();
+    const aiResponse = data.choices?.[0]?.message?.content || "Je sais pas trop quoi dire là";
 
-    // Ajouter un délai aléatoire pour simuler la frappe humaine
-    const delay = 500 + Math.random() * 1500;
-    await new Promise(resolve => setTimeout(resolve, delay));
+    console.log('Groq response received:', aiResponse.substring(0, 50) + '...');
 
-    return res.status(200).json({ response: aiResponse });
+    return new Response(JSON.stringify({ response: aiResponse }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
 
   } catch (error) {
-    console.error('Error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error in chat handler:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
