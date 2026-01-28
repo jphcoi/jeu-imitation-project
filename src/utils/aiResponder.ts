@@ -1,8 +1,12 @@
 import type { Persona, Message } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
-const DELAY_MIN = 800;
-const DELAY_MAX = 3000;
+// URL de l'API - en production, utilise l'API Vercel, sinon fallback local
+const API_URL = import.meta.env.PROD
+  ? '/api/chat'
+  : (import.meta.env.VITE_API_URL || '/api/chat');
+
+// ============ FALLBACK LOCAL (si l'API ne répond pas) ============
 
 const FILLER_PHRASES = [
   "Hmm, laisse-moi réfléchir...",
@@ -61,7 +65,7 @@ function addCasualStyle(text: string): string {
   return result;
 }
 
-function generateContextualResponse(persona: Persona, question: string): string {
+function generateLocalResponse(persona: Persona, question: string): string {
   const q = question.toLowerCase();
 
   if (q.includes('âge') || q.includes('age') || q.includes('ans')) {
@@ -93,47 +97,6 @@ function generateContextualResponse(persona: Persona, question: string): string 
     return responses[Math.floor(Math.random() * responses.length)];
   }
 
-  if (q.includes('week') || q.includes('samedi') || q.includes('dimanche') || q.includes('vacances')) {
-    const interest = persona.interests[Math.floor(Math.random() * persona.interests.length)];
-    const responses = [
-      `En général je fais du ${interest} ou je traîne avec des potes`,
-      `Ça dépend, des fois je reste chez moi, des fois je sors`,
-      `J'essaie de profiter pour faire ce que j'aime`,
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  if (q.includes('musique') || q.includes('écoute') || q.includes('artiste')) {
-    const responses = [
-      "J'écoute un peu de tout, ça dépend de mon humeur",
-      "En ce moment je suis sur du rap français surtout",
-      "Pas de style particulier, je découvre des trucs sur Spotify",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  if (q.includes('film') || q.includes('série') || q.includes('netflix')) {
-    const responses = [
-      "Je regarde pas mal de trucs sur Netflix",
-      "J'aime bien les séries, les films ça dépend",
-      "En ce moment je suis sur une série trop bien",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  if (q.includes('comment ça va') || q.includes('ça va') || q.includes('tu vas')) {
-    const responses = [
-      "Ça va tranquille, et toi ?",
-      "Ouais ça va, un peu fatigué",
-      "Bien bien, et toi alors ?",
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  }
-
-  if (q.includes('pourquoi') || q.includes('comment')) {
-    return `Bonne question... Je sais pas trop en fait, c'est comme ça`;
-  }
-
   if (q.includes('robot') || q.includes('ia') || q.includes('intelligence artificielle') || q.includes('humain')) {
     const responses = [
       "Hein ? Pourquoi tu me demandes ça ?",
@@ -151,21 +114,16 @@ function generateContextualResponse(persona: Persona, question: string): string 
     "Hmm je sais pas trop",
     "Bof, moyen",
     "C'est compliqué à expliquer",
-    persona.description,
   ];
 
   return genericResponses[Math.floor(Math.random() * genericResponses.length)];
 }
 
-export async function generateAIResponse(
-  persona: Persona,
-  _conversationHistory: Message[],
-  lastQuestion: string
-): Promise<string> {
-  const delay = DELAY_MIN + Math.random() * (DELAY_MAX - DELAY_MIN);
+async function generateFallbackResponse(persona: Persona, lastQuestion: string): Promise<string> {
+  const delay = 800 + Math.random() * 2000;
   await new Promise(resolve => setTimeout(resolve, delay));
 
-  let response = generateContextualResponse(persona, lastQuestion);
+  let response = generateLocalResponse(persona, lastQuestion);
 
   if (Math.random() > 0.7) {
     const filler = FILLER_PHRASES[Math.floor(Math.random() * FILLER_PHRASES.length)];
@@ -176,6 +134,62 @@ export async function generateAIResponse(
   response = addTypo(response, 0.15);
 
   return response;
+}
+
+// ============ API LLM (Groq via Vercel Edge) ============
+
+async function generateAPIResponse(
+  persona: Persona,
+  conversationHistory: Message[],
+  lastQuestion: string
+): Promise<string> {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      persona: {
+        name: persona.name,
+        age: persona.age,
+        description: persona.description,
+        traits: persona.traits,
+        interests: persona.interests,
+        speakingStyle: persona.speakingStyle,
+      },
+      conversationHistory: conversationHistory.map(m => ({
+        content: m.content,
+        isFromAI: m.isFromAI,
+      })),
+      lastQuestion,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.response;
+}
+
+// ============ FONCTION PRINCIPALE ============
+
+export async function generateAIResponse(
+  persona: Persona,
+  conversationHistory: Message[],
+  lastQuestion: string
+): Promise<string> {
+  try {
+    // Essayer l'API LLM d'abord
+    const response = await generateAPIResponse(persona, conversationHistory, lastQuestion);
+    console.log('✓ Réponse générée par LLM');
+    return response;
+  } catch (error) {
+    // Fallback sur la génération locale
+    console.warn('⚠ API indisponible, fallback local:', error);
+    return generateFallbackResponse(persona, lastQuestion);
+  }
 }
 
 export function createAIMessage(content: string): Message {
