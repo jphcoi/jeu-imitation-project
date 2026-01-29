@@ -120,9 +120,7 @@ function generateLocalResponse(persona: Persona, question: string): string {
 }
 
 async function generateFallbackResponse(persona: Persona, lastQuestion: string): Promise<string> {
-  const delay = 800 + Math.random() * 2000;
-  await new Promise(resolve => setTimeout(resolve, delay));
-
+  // Note: typing delay is now handled in PlayPage via computeTypingDelay()
   let response = generateLocalResponse(persona, lastQuestion);
 
   if (Math.random() > 0.7) {

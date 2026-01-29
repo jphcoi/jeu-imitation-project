@@ -8,6 +8,19 @@ import type { Message, ChatSession, Persona, GameMode } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 type GamePhase = 'select' | 'waiting' | 'playing' | 'voting' | 'result';
+type WaitingMode = 'generic' | 'private';
+
+/** Simulate realistic typing delay for a teenager (3-6 chars/sec + thinking time) */
+function computeTypingDelay(responseText: string): number {
+  const charCount = responseText.length;
+  // Thinking time: 1.5–4s (random)
+  const thinkTime = 1500 + Math.random() * 2500;
+  // Typing speed: 3–6 chars/sec for a teenager
+  const charsPerSec = 3 + Math.random() * 3;
+  const typingTime = (charCount / charsPerSec) * 1000;
+  // Cap total delay between 2s and 12s
+  return Math.min(Math.max(thinkTime + typingTime, 2000), 12000);
+}
 
 export function PlayPage() {
   const { state, dispatch } = useGame();
@@ -31,7 +44,9 @@ export function PlayPage() {
   // Waiting room
   const [roomCode, setRoomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
-  const [waitingCountdown, setWaitingCountdown] = useState(30);
+  const [waitingMode, setWaitingMode] = useState<WaitingMode>('generic');
+  const [waitingCountdown, setWaitingCountdown] = useState(60);
+  const [waitingElapsed, setWaitingElapsed] = useState(0);
   const waitingIntervalRef = useRef<number | null>(null);
 
   const chatARef = useRef<HTMLDivElement>(null);
@@ -107,17 +122,19 @@ export function PlayPage() {
     }]), 800);
   };
 
-  const startWaitingRoom = () => {
+  const startWaitingRoom = (mode: WaitingMode = 'generic') => {
     if (!personaA) return;
     const pB = personaB || getRandomPersona(personaA.id);
     setPersonaB(pB);
 
-    const code = generateRoomCode();
+    const code = mode === 'private' ? generateRoomCode() : 'PUBLIC';
     setRoomCode(code);
+    setWaitingMode(mode);
     setPhase('waiting');
-    setWaitingCountdown(30);
+    setWaitingCountdown(60);
+    setWaitingElapsed(0);
 
-    // Start countdown - if no one joins, start solo game
+    // Start countdown - tick every second
     waitingIntervalRef.current = window.setInterval(() => {
       setWaitingCountdown(prev => {
         if (prev <= 1) {
@@ -126,10 +143,11 @@ export function PlayPage() {
         }
         return prev - 1;
       });
+      setWaitingElapsed(prev => prev + 1);
     }, 1000);
   };
 
-  // When countdown reaches 0, start solo
+  // When countdown reaches 0, fall back to solo
   useEffect(() => {
     if (waitingCountdown === 0 && phase === 'waiting') {
       startSoloGame();
@@ -224,12 +242,15 @@ export function PlayPage() {
     const persona = personaA;
 
     if (isAI && persona) {
+      // Generate AI response, then add a realistic typing delay
       const response = await generateAIResponse(persona, messagesA, question);
+      const delay = computeTypingDelay(response);
+      await new Promise(resolve => setTimeout(resolve, delay));
       setTypingA(false);
       setMessagesA(prev => [...prev, createAIMessage(response)]);
     } else {
       // Simulated human response (for multiplayer placeholder)
-      const delay = 1500 + Math.random() * 3500;
+      const delay = 2000 + Math.random() * 5000;
       setTimeout(() => {
         setTypingA(false);
         const responses = [
@@ -273,11 +294,14 @@ export function PlayPage() {
     const persona = personaB;
 
     if (isAI && persona) {
+      // Generate AI response, then add a realistic typing delay
       const response = await generateAIResponse(persona, messagesB, question);
+      const delay = computeTypingDelay(response);
+      await new Promise(resolve => setTimeout(resolve, delay));
       setTypingB(false);
       setMessagesB(prev => [...prev, createAIMessage(response)]);
     } else {
-      const delay = 1500 + Math.random() * 3500;
+      const delay = 2000 + Math.random() * 5000;
       setTimeout(() => {
         setTypingB(false);
         const responses = [
@@ -471,38 +495,83 @@ export function PlayPage() {
             </div>
           </RetroContainer>
 
-          {/* Join room (multiplayer) */}
+          {/* Multiplayer options */}
           {gameMode === 'multiplayer' && (
-            <RetroContainer title="🔗 REJOINDRE UNE SALLE" className="mb-6">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  className="retro-input flex-1"
-                  placeholder="Code de la salle (ex: AB12CD)"
-                  maxLength={6}
-                />
+            <RetroContainer title="🔗 REJOINDRE OU CRÉER UNE SALLE" className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Generic queue */}
                 <button
-                  onClick={joinRoom}
-                  disabled={joinCode.length !== 6}
-                  className="retro-btn retro-btn-cyan"
+                  onClick={() => setWaitingMode('generic')}
+                  className={`p-4 border-2 transition-all text-left ${
+                    waitingMode === 'generic'
+                      ? 'border-[#00ff41] bg-[rgba(0,255,65,0.1)]'
+                      : 'border-gray-600 hover:border-[#00ff41]'
+                  }`}
                 >
-                  Rejoindre
+                  <p className="text-xl mb-1">🌐 FILE GÉNÉRIQUE</p>
+                  <p className="retro-text-amber text-sm">
+                    Rejoindre la file d'attente publique. Le premier joueur disponible sera jumelé avec vous.
+                  </p>
+                  {waitingMode === 'generic' && <span className="text-lg mt-1 block">✓ Sélectionné</span>}
+                </button>
+
+                {/* Private room */}
+                <button
+                  onClick={() => setWaitingMode('private')}
+                  className={`p-4 border-2 transition-all text-left ${
+                    waitingMode === 'private'
+                      ? 'border-[#00ffff] bg-[rgba(0,255,255,0.1)]'
+                      : 'border-gray-600 hover:border-[#00ffff]'
+                  }`}
+                >
+                  <p className="text-xl retro-text-cyan mb-1">🔒 SALLE PRIVÉE</p>
+                  <p className="retro-text-amber text-sm">
+                    Créer ou rejoindre une salle avec un code. Partagez le code avec un camarade.
+                  </p>
+                  {waitingMode === 'private' && <span className="text-lg mt-1 block retro-text-cyan">✓ Sélectionné</span>}
                 </button>
               </div>
+
+              {/* Code input for private room */}
+              {waitingMode === 'private' && (
+                <div className="mt-4">
+                  <p className="mb-2 retro-text-amber">Entrez un code pour rejoindre une salle existante :</p>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      className="retro-input flex-1"
+                      placeholder="Code de la salle (ex: AB12CD)"
+                      maxLength={6}
+                    />
+                    <button
+                      onClick={joinRoom}
+                      disabled={joinCode.length !== 6}
+                      className="retro-btn retro-btn-cyan"
+                    >
+                      Rejoindre
+                    </button>
+                  </div>
+                  <p className="text-sm retro-text-cyan mt-2">
+                    Ou cliquez "Créer une salle" ci-dessous pour obtenir un nouveau code.
+                  </p>
+                </div>
+              )}
             </RetroContainer>
           )}
 
           {/* Start button */}
           {personaA && (
             <button
-              onClick={gameMode === 'solo' ? startSoloGame : startWaitingRoom}
+              onClick={gameMode === 'solo' ? startSoloGame : () => startWaitingRoom(waitingMode)}
               className="retro-btn w-full"
             >
               {gameMode === 'solo'
                 ? '▶ LANCER LA PARTIE (2 IAs)'
-                : '▶ CRÉER UNE SALLE D\'ATTENTE'
+                : waitingMode === 'generic'
+                  ? '▶ REJOINDRE LA FILE D\'ATTENTE'
+                  : '▶ CRÉER UNE SALLE PRIVÉE'
               }
             </button>
           )}
@@ -514,22 +583,41 @@ export function PlayPage() {
   // ==================== RENDER: WAITING ROOM ====================
 
   if (phase === 'waiting') {
+    const isPrivate = waitingMode === 'private';
+    const progressPct = (waitingElapsed / 60) * 100;
+
     return (
       <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
         <div className="scanline"></div>
-        <RetroContainer title="⏳ SALLE D'ATTENTE" className="max-w-lg w-full">
+        <RetroContainer
+          title={isPrivate ? "🔒 SALLE PRIVÉE" : "🌐 FILE D'ATTENTE PUBLIQUE"}
+          className="max-w-lg w-full"
+        >
           <div className="text-center py-6">
-            <p className="text-lg mb-6">
-              Partagez ce code avec un autre élève pour qu'il rejoigne :
-            </p>
+            {isPrivate ? (
+              <>
+                <p className="text-lg mb-4">
+                  Partagez ce code avec un autre élève :
+                </p>
+                <div className="retro-card p-8 mb-6">
+                  <p className="text-5xl tracking-widest glow-text" style={{ fontFamily: "'Press Start 2P', cursive" }}>
+                    {roomCode}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-lg mb-4">
+                  Vous êtes dans la <span className="glow-text">file d'attente publique</span>.
+                </p>
+                <p className="retro-text-amber mb-6">
+                  Dès qu'un autre élève rejoint, la partie démarrera automatiquement.
+                </p>
+              </>
+            )}
 
-            <div className="retro-card p-8 mb-6">
-              <p className="text-5xl tracking-widest glow-text" style={{ fontFamily: "'Press Start 2P', cursive" }}>
-                {roomCode}
-              </p>
-            </div>
-
-            <div className="typing-indicator justify-center mb-6">
+            {/* Animated waiting indicator */}
+            <div className="typing-indicator justify-center mb-4">
               <div className="typing-dot"></div>
               <div className="typing-dot"></div>
               <div className="typing-dot"></div>
@@ -539,15 +627,25 @@ export function PlayPage() {
               En attente d'un joueur...
             </p>
 
-            <p className="text-lg mb-6">
-              La partie démarre automatiquement avec <span className="retro-text-cyan">2 IAs</span> dans :
+            {/* Progress bar */}
+            <div className="w-full h-3 border border-[#00ff41] mb-2 mt-4">
+              <div
+                className="h-full transition-all"
+                style={{
+                  width: `${progressPct}%`,
+                  background: waitingCountdown < 15 ? 'var(--retro-magenta)' : 'var(--retro-green)',
+                }}
+              />
+            </div>
+
+            <p className="text-sm mb-4">
+              Fallback <span className="retro-text-cyan">2 IAs</span> dans{' '}
+              <span className={waitingCountdown < 15 ? 'retro-text-magenta' : 'glow-text'}>
+                {waitingCountdown}s
+              </span>
             </p>
 
-            <p className={`retro-timer ${waitingCountdown < 10 ? 'warning' : ''}`}>
-              {waitingCountdown}s
-            </p>
-
-            <div className="flex gap-4 justify-center mt-6">
+            <div className="flex gap-4 justify-center mt-6 flex-wrap">
               <button
                 onClick={startSoloGame}
                 className="retro-btn"
