@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User, Persona, ChatSession, Vote, EnqueteurScore, PersonaScore, GameState } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { DEFAULT_PERSONAS } from '../utils/defaultPersonas';
 
 type Action =
   | { type: 'SET_USER'; payload: User | null }
@@ -13,10 +14,12 @@ type Action =
   | { type: 'UPDATE_SESSION'; payload: ChatSession }
   | { type: 'ADD_VOTE'; payload: Vote }
   | { type: 'UPDATE_SCORES' }
+  | { type: 'SEED_DEFAULTS' }
   | { type: 'LOAD_STATE'; payload: GameState };
 
 const initialState: GameState = {
   currentUser: null,
+  knownUsers: [],
   personas: [],
   sessions: [],
   votes: [],
@@ -24,19 +27,29 @@ const initialState: GameState = {
   personaScores: [],
 };
 
-function calculateEnqueteurScores(sessions: ChatSession[], votes: Vote[], _users: User[]): EnqueteurScore[] {
+function calculateEnqueteurScores(sessions: ChatSession[], votes: Vote[], knownUsers: User[]): EnqueteurScore[] {
   const scoreMap = new Map<string, EnqueteurScore>();
 
   votes.forEach(vote => {
     const session = sessions.find(s => s.id === vote.sessionId);
     if (!session || session.status !== 'completed') return;
 
-    const isCorrect = (vote.votedChat === session.aiIsInChat);
+    // In 'both' mode, vote is correct if they picked either A or B (both are AI)
+    // In 'A' or 'B' mode, vote is correct if they picked the right one
+    let isCorrect = false;
+    if (session.aiIsInChat === 'both') {
+      // In solo mode both are AI, so the question is: did they pick the "worse" AI?
+      // For scoring, any vote is "correct" since both are AI - give points
+      isCorrect = true;
+    } else {
+      isCorrect = vote.votedChat === session.aiIsInChat;
+    }
 
     if (!scoreMap.has(vote.enqueteurId)) {
+      const user = knownUsers.find(u => u.id === vote.enqueteurId);
       scoreMap.set(vote.enqueteurId, {
         userId: vote.enqueteurId,
-        pseudo: vote.enqueteurId,
+        pseudo: user?.pseudo || vote.enqueteurId,
         totalSessions: 0,
         correctDetections: 0,
         bonusPoints: 0,
@@ -84,16 +97,25 @@ function calculatePersonaScores(sessions: ChatSession[], votes: Vote[], personas
   sessions.forEach(session => {
     if (session.status !== 'completed') return;
 
-    const score = scoreMap.get(session.personaId);
-    if (!score) return;
-
-    score.totalSessions++;
+    // Update both personas used in the session
+    [session.personaIdA, session.personaIdB].forEach(pid => {
+      const score = scoreMap.get(pid);
+      if (score) {
+        score.totalSessions++;
+      }
+    });
 
     const vote = votes.find(v => v.sessionId === session.id);
-    if (vote && vote.votedChat === session.aiIsInChat) {
-      score.timesDetectedAsAI++;
+    if (vote) {
+      const detectedPersonaId = vote.votedChat === 'A' ? session.personaIdA : session.personaIdB;
+      const detectedScore = scoreMap.get(detectedPersonaId);
+      if (detectedScore) {
+        detectedScore.timesDetectedAsAI++;
+      }
     }
+  });
 
+  scoreMap.forEach(score => {
     score.credibilityIndex = score.totalSessions > 0
       ? ((score.totalSessions - score.timesDetectedAsAI) / score.totalSessions) * 100
       : 100;
@@ -104,8 +126,16 @@ function calculatePersonaScores(sessions: ChatSession[], votes: Vote[], personas
 
 function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
-    case 'SET_USER':
-      return { ...state, currentUser: action.payload };
+    case 'SET_USER': {
+      if (!action.payload) return { ...state, currentUser: null };
+      // Add to known users if not already there
+      const exists = state.knownUsers.some(u => u.id === action.payload!.id);
+      return {
+        ...state,
+        currentUser: action.payload,
+        knownUsers: exists ? state.knownUsers : [...state.knownUsers, action.payload],
+      };
+    }
 
     case 'LOGOUT':
       return { ...state, currentUser: null };
@@ -138,21 +168,31 @@ function gameReducer(state: GameState, action: Action): GameState {
         ),
       };
 
-    case 'ADD_VOTE':
+    case 'ADD_VOTE': {
       const newVotes = [...state.votes, action.payload];
       return {
         ...state,
         votes: newVotes,
-        enqueteurScores: calculateEnqueteurScores(state.sessions, newVotes, []),
+        enqueteurScores: calculateEnqueteurScores(state.sessions, newVotes, state.knownUsers),
         personaScores: calculatePersonaScores(state.sessions, newVotes, state.personas),
       };
+    }
 
     case 'UPDATE_SCORES':
       return {
         ...state,
-        enqueteurScores: calculateEnqueteurScores(state.sessions, state.votes, []),
+        enqueteurScores: calculateEnqueteurScores(state.sessions, state.votes, state.knownUsers),
         personaScores: calculatePersonaScores(state.sessions, state.votes, state.personas),
       };
+
+    case 'SEED_DEFAULTS': {
+      const existingDefaultIds = state.personas.filter(p => p.isDefault).map(p => p.id);
+      const newDefaults = DEFAULT_PERSONAS.filter(d => !existingDefaultIds.includes(d.id));
+      return {
+        ...state,
+        personas: [...state.personas, ...newDefaults],
+      };
+    }
 
     case 'LOAD_STATE':
       return action.payload;
@@ -168,7 +208,6 @@ interface GameContextType {
   login: (pseudo: string, role: 'student' | 'teacher', classId?: string) => void;
   logout: () => void;
   createPersona: (persona: Omit<Persona, 'id' | 'createdAt' | 'createdBy'>) => void;
-  startSession: (personaId: string) => ChatSession;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -178,6 +217,7 @@ const STORAGE_KEY = 'jeu-imitation-state';
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
+  // Load saved state on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -188,21 +228,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
         console.error('Erreur lors du chargement des données:', e);
       }
     }
+    // Always seed defaults (will skip if already present)
+    dispatch({ type: 'SEED_DEFAULTS' });
   }, []);
 
+  // Persist state
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
   const login = (pseudo: string, role: 'student' | 'teacher', classId?: string) => {
-    const user: User = {
-      id: uuidv4(),
-      pseudo,
-      role,
-      classId,
-      createdAt: new Date(),
-    };
-    dispatch({ type: 'SET_USER', payload: user });
+    // Look for existing user with same pseudo + class
+    const existingUser = state.knownUsers.find(
+      u => u.pseudo.toLowerCase() === pseudo.toLowerCase() && u.classId === (classId || undefined)
+    );
+
+    if (existingUser) {
+      // Re-login: restore existing user (keeps their history)
+      dispatch({ type: 'SET_USER', payload: existingUser });
+    } else {
+      // New user
+      const user: User = {
+        id: uuidv4(),
+        pseudo,
+        role,
+        classId,
+        createdAt: new Date(),
+      };
+      dispatch({ type: 'SET_USER', payload: user });
+    }
   };
 
   const logout = () => {
@@ -221,23 +275,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'ADD_PERSONA', payload: persona });
   };
 
-  const startSession = (personaId: string): ChatSession => {
-    const session: ChatSession = {
-      id: uuidv4(),
-      enqueteurId: state.currentUser?.id || '',
-      personaId,
-      messages: { chatA: [], chatB: [] },
-      startTime: new Date(),
-      duration: 300,
-      status: 'active',
-      aiIsInChat: Math.random() > 0.5 ? 'A' : 'B',
-    };
-    dispatch({ type: 'ADD_SESSION', payload: session });
-    return session;
-  };
-
   return (
-    <GameContext.Provider value={{ state, dispatch, login, logout, createPersona, startSession }}>
+    <GameContext.Provider value={{ state, dispatch, login, logout, createPersona }}>
       {children}
     </GameContext.Provider>
   );

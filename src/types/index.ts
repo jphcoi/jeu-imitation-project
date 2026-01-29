@@ -17,6 +17,7 @@ export interface Persona {
   createdBy: string;
   classId: string;
   createdAt: Date;
+  isDefault?: boolean;
   credibilityScore?: number;
 }
 
@@ -28,11 +29,15 @@ export interface Message {
   isFromAI: boolean;
 }
 
+export type GameMode = 'solo' | 'multiplayer';
+
 export interface ChatSession {
   id: string;
   enqueteurId: string;
   humanResponderId?: string;
-  personaId: string;
+  personaIdA: string; // Persona used by chat A (AI)
+  personaIdB: string; // Persona used by chat B (AI or human)
+  gameMode: GameMode;
   messages: {
     chatA: Message[];
     chatB: Message[];
@@ -41,7 +46,8 @@ export interface ChatSession {
   endTime?: Date;
   duration: number; // en secondes, max 300 (5 min)
   status: 'waiting' | 'active' | 'voting' | 'completed';
-  aiIsInChat: 'A' | 'B'; // Dans quel chat est l'IA
+  aiIsInChat: 'A' | 'B' | 'both'; // Where is the AI
+  humanChat?: 'A' | 'B'; // Which chat the human player is in (multiplayer only)
 }
 
 export interface Vote {
@@ -59,9 +65,9 @@ export interface EnqueteurScore {
   pseudo: string;
   totalSessions: number;
   correctDetections: number;
-  bonusPoints: number; // Points bonus pour justifications argumentées
+  bonusPoints: number;
   totalPoints: number;
-  reliabilityIndex: number; // Indice de fiabilité Rᵢ
+  reliabilityIndex: number;
 }
 
 export interface PersonaScore {
@@ -70,12 +76,26 @@ export interface PersonaScore {
   classId: string;
   totalSessions: number;
   timesDetectedAsAI: number;
-  credibilityIndex: number; // Score IC
+  credibilityIndex: number;
   qualitativeNotes: string[];
+}
+
+export interface WaitingRoom {
+  id: string;
+  code: string;
+  hostId: string;
+  hostPseudo: string;
+  guestId?: string;
+  guestPseudo?: string;
+  personaIdA: string;
+  personaIdB: string;
+  status: 'waiting' | 'ready' | 'started' | 'expired';
+  createdAt: Date;
 }
 
 export interface GameState {
   currentUser: User | null;
+  knownUsers: User[]; // For persistent login
   personas: Persona[];
   sessions: ChatSession[];
   votes: Vote[];

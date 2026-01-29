@@ -33,7 +33,9 @@ export function DashboardPage() {
       personaScores,
       sessions: completedSessions.map(s => ({
         id: s.id,
-        personaId: s.personaId,
+        personaIdA: s.personaIdA,
+        personaIdB: s.personaIdB,
+        gameMode: s.gameMode,
         startTime: s.startTime,
         endTime: s.endTime,
         aiWasIn: s.aiIsInChat,
@@ -220,11 +222,12 @@ export function DashboardPage() {
                   <tbody>
                     {completedSessions.map(session => {
                       const vote = votes.find(v => v.sessionId === session.id);
-                      const persona = personas.find(p => p.id === session.personaId);
+                      const personaA = personas.find(p => p.id === session.personaIdA);
+                      const personaB = personas.find(p => p.id === session.personaIdB);
                       return (
                         <tr key={session.id} className="border-b border-gray-700">
                           <td className="p-3 font-mono text-sm">{session.id.slice(0, 8)}...</td>
-                          <td className="p-3 retro-text-magenta">{persona?.name || '-'}</td>
+                          <td className="p-3 retro-text-magenta">{personaA?.name || '?'} / {personaB?.name || '?'}</td>
                           <td className="p-3">Chat {session.aiIsInChat}</td>
                           <td className="p-3">
                             A: {session.messages.chatA.length} / B: {session.messages.chatB.length}
