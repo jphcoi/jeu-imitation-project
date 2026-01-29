@@ -14,22 +14,16 @@ export interface ReceivedMessage {
   timestamp: number;
 }
 
-interface ChannelMessage {
-  type: string;
-  senderId: string;
-  payload?: Record<string, unknown>;
-  timestamp: number;
-}
+const RELAY_URL = '/api/relay';
 
 /**
- * Hook for cross-tab multiplayer via BroadcastChannel.
- * Works between tabs/windows of the same origin (same browser, same domain).
+ * Cross-device multiplayer via HTTP polling + Upstash Redis.
  *
- * Flow:
- *  1. Player creates/joins a room (private code or generic lobby)
- *  2. When two players match, roles are assigned randomly
- *  3. During game, chat messages and typing indicators are relayed
- *  4. When the enquêteur votes, GAME_END is sent
+ * Works across different browsers/devices/networks — any two users
+ * accessing the same deployed URL can play together.
+ *
+ * External API is identical to the previous BroadcastChannel version
+ * so PlayPage needs zero changes.
  */
 export function useMultiplayer(userId: string) {
   const [isSearching, setIsSearching] = useState(false);
@@ -38,246 +32,236 @@ export function useMultiplayer(userId: string) {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
 
-  const lobbyRef = useRef<BroadcastChannel | null>(null);
-  const roomRef = useRef<BroadcastChannel | null>(null);
-  const gameRef = useRef<BroadcastChannel | null>(null);
-  const announceRef = useRef<number | null>(null);
-  const typingTimeoutRef = useRef<number | null>(null);
-  const matchedRef = useRef(false);
+  const roomCodeRef = useRef<string | null>(null);
+  const lastMsgIndexRef = useRef(0);
+  const gamePollRef = useRef<number | null>(null);
+  const matchPollRef = useRef<number | null>(null);
+  const lastTypingSentRef = useRef(0);
+  const mountedRef = useRef(true);
 
   // Cleanup on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      lobbyRef.current?.close();
-      roomRef.current?.close();
-      gameRef.current?.close();
-      if (announceRef.current) clearInterval(announceRef.current);
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      mountedRef.current = false;
+      if (gamePollRef.current) clearInterval(gamePollRef.current);
+      if (matchPollRef.current) clearInterval(matchPollRef.current);
     };
   }, []);
 
-  // ─── Game channel (used after matching) ───
+  // ─── API helper ───
 
-  const setupGameChannel = useCallback((roomCode: string) => {
-    gameRef.current?.close();
-    const ch = new BroadcastChannel(`jeu-imitation-game-${roomCode}`);
-    gameRef.current = ch;
-
-    ch.onmessage = (ev: MessageEvent<ChannelMessage>) => {
-      const msg = ev.data;
-      if (msg.senderId === userId) return;
-
-      switch (msg.type) {
-        case 'CHAT_MESSAGE':
-          setReceivedMessages(prev => [
-            ...prev,
-            {
-              id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              content: (msg.payload as { content: string }).content,
-              timestamp: msg.timestamp,
-            },
-          ]);
-          setPartnerTyping(false);
-          break;
-
-        case 'TYPING':
-          setPartnerTyping(true);
-          if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-          typingTimeoutRef.current = window.setTimeout(() => setPartnerTyping(false), 4000);
-          break;
-
-        case 'GAME_END':
-          setGameEnded(true);
-          break;
+  const relay = useCallback(async (body: Record<string, unknown>) => {
+    try {
+      const res = await fetch(RELAY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.warn('[multiplayer] relay error:', res.status, err);
+        return { error: true, status: res.status, ...(err as Record<string, unknown>) };
       }
-    };
-  }, [userId]);
+      return res.json();
+    } catch (e) {
+      console.warn('[multiplayer] network error:', e);
+      return { error: true, network: true };
+    }
+  }, []);
 
-  // Helper: finalise a match
-  const finaliseMatch = useCallback(
+  // ─── Finalise a match ───
+
+  const onMatched = useCallback(
     (partnerId: string, role: MultiplayerRole, roomCode: string) => {
-      matchedRef.current = true;
+      if (!mountedRef.current) return;
+
+      // Stop any match polling
+      if (matchPollRef.current) {
+        clearInterval(matchPollRef.current);
+        matchPollRef.current = null;
+      }
+
+      roomCodeRef.current = roomCode;
+      lastMsgIndexRef.current = 0;
       setMatchData({ partnerId, role, roomCode });
       setIsSearching(false);
-      setupGameChannel(roomCode);
 
-      // Close lobby / room channels
-      lobbyRef.current?.close();
-      lobbyRef.current = null;
-      roomRef.current?.close();
-      roomRef.current = null;
-      if (announceRef.current) {
-        clearInterval(announceRef.current);
-        announceRef.current = null;
-      }
+      // Start game polling (messages, typing, game end)
+      gamePollRef.current = window.setInterval(async () => {
+        if (!mountedRef.current) return;
+        const data = await relay({
+          action: 'poll',
+          roomCode,
+          userId,
+          lastMsgIndex: lastMsgIndexRef.current,
+        });
+        if (data.error) return;
+
+        // New messages from partner
+        if (data.messages && data.messages.length > 0) {
+          const fromPartner = data.messages.filter(
+            (m: { senderId: string }) => m.senderId !== userId,
+          );
+          if (fromPartner.length > 0) {
+            setReceivedMessages(prev => [
+              ...prev,
+              ...fromPartner.map((m: { id: string; content: string; timestamp: number }) => ({
+                id: m.id,
+                content: m.content,
+                timestamp: m.timestamp,
+              })),
+            ]);
+          }
+          lastMsgIndexRef.current = data.totalMessages;
+        }
+
+        // Typing
+        if (data.partnerTyping) {
+          setPartnerTyping(true);
+        } else {
+          setPartnerTyping(false);
+        }
+
+        // Game ended
+        if (data.gameEnded) {
+          setGameEnded(true);
+        }
+      }, 1000);
     },
-    [setupGameChannel],
+    [relay, userId],
   );
 
   // ─── Create private room ───
 
   const createPrivateRoom = useCallback(
-    (roomCode: string) => {
-      roomRef.current?.close();
-      matchedRef.current = false;
-      const ch = new BroadcastChannel(`jeu-imitation-room-${roomCode}`);
-      roomRef.current = ch;
+    async (roomCode: string) => {
       setIsSearching(true);
+      const res = await relay({ action: 'create-room', roomCode, userId });
+      if (res.error) {
+        console.warn('[multiplayer] could not create room:', res);
+        setIsSearching(false);
+        return;
+      }
 
-      ch.onmessage = (ev: MessageEvent<ChannelMessage>) => {
-        const msg = ev.data;
-        if (msg.senderId === userId || matchedRef.current) return;
+      // Poll until someone joins
+      matchPollRef.current = window.setInterval(async () => {
+        if (!mountedRef.current) return;
+        const data = await relay({ action: 'poll', roomCode, userId });
+        if (data.error) return;
 
-        if (msg.type === 'JOIN_ROOM') {
-          const iAmEnqueteur = Math.random() > 0.5;
-          const myRole: MultiplayerRole = iAmEnqueteur ? 'enqueteur' : 'enquete';
-          const partnerRole: MultiplayerRole = iAmEnqueteur ? 'enquete' : 'enqueteur';
-
-          ch.postMessage({
-            type: 'GAME_STARTING',
-            senderId: userId,
-            payload: { role: partnerRole, roomCode },
-            timestamp: Date.now(),
-          });
-
-          finaliseMatch(msg.senderId, myRole, roomCode);
+        if (data.status === 'playing' && data.role) {
+          onMatched(data.partnerId, data.role, roomCode);
         }
-      };
-
-      // Announce room exists (so late joiners detect it)
-      ch.postMessage({ type: 'ROOM_READY', senderId: userId, timestamp: Date.now() });
+      }, 1500);
     },
-    [userId, finaliseMatch],
+    [relay, userId, onMatched],
   );
 
   // ─── Join private room ───
 
   const joinPrivateRoom = useCallback(
-    (roomCode: string) => {
-      roomRef.current?.close();
-      matchedRef.current = false;
-      const ch = new BroadcastChannel(`jeu-imitation-room-${roomCode}`);
-      roomRef.current = ch;
+    async (roomCode: string) => {
       setIsSearching(true);
 
-      ch.onmessage = (ev: MessageEvent<ChannelMessage>) => {
-        const msg = ev.data;
-        if (msg.senderId === userId || matchedRef.current) return;
-
-        if (msg.type === 'GAME_STARTING') {
-          const p = msg.payload as { role: MultiplayerRole; roomCode: string };
-          finaliseMatch(msg.senderId, p.role, p.roomCode);
+      const tryJoin = async (): Promise<boolean> => {
+        const data = await relay({ action: 'join-room', roomCode, userId });
+        if (data.status === 'playing' && data.role) {
+          onMatched(data.partnerId, data.role, roomCode);
+          return true;
         }
+        return false;
       };
 
-      ch.postMessage({ type: 'JOIN_ROOM', senderId: userId, timestamp: Date.now() });
+      // Try immediately
+      if (await tryJoin()) return;
+
+      // Retry every 2s (room may not exist yet)
+      matchPollRef.current = window.setInterval(async () => {
+        if (!mountedRef.current) return;
+        if (await tryJoin()) {
+          if (matchPollRef.current) clearInterval(matchPollRef.current);
+          matchPollRef.current = null;
+        }
+      }, 2000);
     },
-    [userId, finaliseMatch],
+    [relay, userId, onMatched],
   );
 
-  // ─── Generic lobby queue ───
+  // ─── Join generic queue ───
 
-  const joinGenericQueue = useCallback(() => {
-    lobbyRef.current?.close();
-    matchedRef.current = false;
-    const ch = new BroadcastChannel('jeu-imitation-lobby');
-    lobbyRef.current = ch;
+  const joinGenericQueue = useCallback(async () => {
     setIsSearching(true);
+    const data = await relay({ action: 'join-queue', userId });
 
-    ch.onmessage = (ev: MessageEvent<ChannelMessage>) => {
-      const msg = ev.data;
-      if (msg.senderId === userId || matchedRef.current) return;
+    if (data.error) {
+      console.warn('[multiplayer] queue error:', data);
+      setIsSearching(false);
+      return;
+    }
 
-      if (msg.type === 'LOOKING_FOR_GAME') {
-        // I found someone → I become host
-        const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const iAmEnqueteur = Math.random() > 0.5;
-        const myRole: MultiplayerRole = iAmEnqueteur ? 'enqueteur' : 'enquete';
-        const partnerRole: MultiplayerRole = iAmEnqueteur ? 'enquete' : 'enqueteur';
+    if (data.status === 'playing' && data.roomCode) {
+      // Immediately matched
+      onMatched(data.partnerId, data.role, data.roomCode);
+      return;
+    }
 
-        ch.postMessage({
-          type: 'MATCH_FOUND',
-          senderId: userId,
-          payload: { targetId: msg.senderId, role: partnerRole, roomCode },
-          timestamp: Date.now(),
-        });
+    // Waiting — poll for match
+    matchPollRef.current = window.setInterval(async () => {
+      if (!mountedRef.current) return;
+      const pollData = await relay({ action: 'poll', userId });
+      if (pollData.error) return;
 
-        finaliseMatch(msg.senderId, myRole, roomCode);
+      if (pollData.status === 'matched' && pollData.roomCode) {
+        onMatched(pollData.partnerId, pollData.role, pollData.roomCode);
       }
-
-      if (msg.type === 'MATCH_FOUND') {
-        const p = msg.payload as { targetId: string; role: MultiplayerRole; roomCode: string };
-        if (p.targetId === userId) {
-          finaliseMatch(msg.senderId, p.role, p.roomCode);
-        }
-      }
-    };
-
-    // Announce availability immediately + every 2s
-    const announce = () => {
-      try {
-        ch.postMessage({
-          type: 'LOOKING_FOR_GAME',
-          senderId: userId,
-          timestamp: Date.now(),
-        });
-      } catch {
-        /* channel closed */
-      }
-    };
-    announce();
-    announceRef.current = window.setInterval(announce, 2000);
-  }, [userId, finaliseMatch]);
+    }, 1500);
+  }, [relay, userId, onMatched]);
 
   // ─── In-game actions ───
 
   const sendMessage = useCallback(
     (content: string) => {
-      gameRef.current?.postMessage({
-        type: 'CHAT_MESSAGE',
-        senderId: userId,
-        payload: { content },
-        timestamp: Date.now(),
-      });
+      if (!roomCodeRef.current) return;
+      // Fire-and-forget
+      relay({ action: 'send', roomCode: roomCodeRef.current, senderId: userId, content });
     },
-    [userId],
+    [relay, userId],
   );
 
   const sendTyping = useCallback(() => {
-    gameRef.current?.postMessage({
-      type: 'TYPING',
-      senderId: userId,
-      timestamp: Date.now(),
-    });
-  }, [userId]);
+    if (!roomCodeRef.current) return;
+    // Debounce: max once per 2 seconds
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < 2000) return;
+    lastTypingSentRef.current = now;
+    relay({ action: 'typing', roomCode: roomCodeRef.current, userId });
+  }, [relay, userId]);
 
   const sendGameEnd = useCallback(() => {
-    gameRef.current?.postMessage({
-      type: 'GAME_END',
-      senderId: userId,
-      timestamp: Date.now(),
-    });
-  }, [userId]);
+    if (!roomCodeRef.current) return;
+    relay({ action: 'game-end', roomCode: roomCodeRef.current });
+  }, [relay]);
 
-  // ─── Full disconnect & reset ───
+  // ─── Disconnect & reset ───
 
   const disconnect = useCallback(() => {
-    try { gameRef.current?.postMessage({ type: 'GAME_END', senderId: userId, timestamp: Date.now() }); } catch { /* */ }
-    gameRef.current?.close();
-    lobbyRef.current?.close();
-    roomRef.current?.close();
-    gameRef.current = null;
-    lobbyRef.current = null;
-    roomRef.current = null;
-    if (announceRef.current) clearInterval(announceRef.current);
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    matchedRef.current = false;
+    if (roomCodeRef.current) {
+      relay({ action: 'game-end', roomCode: roomCodeRef.current }).catch(() => {});
+    }
+    if (gamePollRef.current) clearInterval(gamePollRef.current);
+    if (matchPollRef.current) clearInterval(matchPollRef.current);
+    gamePollRef.current = null;
+    matchPollRef.current = null;
+    roomCodeRef.current = null;
+    lastMsgIndexRef.current = 0;
+    lastTypingSentRef.current = 0;
     setMatchData(null);
     setIsSearching(false);
     setReceivedMessages([]);
     setPartnerTyping(false);
     setGameEnded(false);
-  }, [userId]);
+  }, [relay]);
 
   return {
     isSearching,
