@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { RetroContainer } from '../components/RetroContainer';
 import { useTimer } from '../hooks/useTimer';
+import { useMultiplayer } from '../hooks/useMultiplayer';
 import { generateAIResponse, createAIMessage } from '../utils/aiResponder';
 import type { Message, ChatSession, Persona, GameMode } from '../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,12 +14,9 @@ type WaitingMode = 'generic' | 'private';
 /** Simulate realistic typing delay for a teenager (3-6 chars/sec + thinking time) */
 function computeTypingDelay(responseText: string): number {
   const charCount = responseText.length;
-  // Thinking time: 1.5–4s (random)
   const thinkTime = 1500 + Math.random() * 2500;
-  // Typing speed: 3–6 chars/sec for a teenager
   const charsPerSec = 3 + Math.random() * 3;
   const typingTime = (charCount / charsPerSec) * 1000;
-  // Cap total delay between 2s and 12s
   return Math.min(Math.max(thinkTime + typingTime, 2000), 12000);
 }
 
@@ -41,6 +39,13 @@ export function PlayPage() {
   const [justification, setJustification] = useState('');
   const [result, setResult] = useState<{ correct: boolean; points: number } | null>(null);
 
+  // Multiplayer role & enquêté state
+  const [role, setRole] = useState<'enqueteur' | 'enquete' | null>(null);
+  const [enqueteMessages, setEnqueteMessages] = useState<Message[]>([]);
+  const [enqueteInput, setEnqueteInput] = useState('');
+  const enqueteChatRef = useRef<HTMLDivElement>(null);
+  const processedMsgCountRef = useRef(0);
+
   // Waiting room
   const [roomCode, setRoomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
@@ -54,30 +59,154 @@ export function PlayPage() {
 
   const { timeLeft, isExpired, start, formatTime } = useTimer(300);
 
+  // Multiplayer hook
+  const multiplayer = useMultiplayer(currentUser?.id || '');
+
+  // Refs for values used inside effects to avoid stale closures
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const roleRef = useRef(role);
+  roleRef.current = role;
+
+  // ==================== EFFECTS ====================
+
   // Auto-scroll chats
   useEffect(() => {
     if (chatARef.current) chatARef.current.scrollTop = chatARef.current.scrollHeight;
   }, [messagesA]);
-
   useEffect(() => {
     if (chatBRef.current) chatBRef.current.scrollTop = chatBRef.current.scrollHeight;
   }, [messagesB]);
-
-  // Timer expired
   useEffect(() => {
-    if (isExpired && phase === 'playing') setPhase('voting');
-  }, [isExpired, phase]);
+    if (enqueteChatRef.current) enqueteChatRef.current.scrollTop = enqueteChatRef.current.scrollHeight;
+  }, [enqueteMessages]);
 
-  // Auto-assign random second persona if not selected
+  // Timer expired → voting (enquêteur only)
+  useEffect(() => {
+    if (isExpired && phase === 'playing' && role !== 'enquete') {
+      setPhase('voting');
+    }
+  }, [isExpired, phase, role]);
+
+  // Timer expired → game over for enquêté
+  useEffect(() => {
+    if (isExpired && phase === 'playing' && role === 'enquete') {
+      setPhase('result');
+    }
+  }, [isExpired, phase, role]);
+
+  // Cleanup waiting interval on unmount
+  useEffect(() => {
+    return () => {
+      if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
+    };
+  }, []);
+
+  // ─── Multiplayer: match found → start game ───
+  useEffect(() => {
+    if (!multiplayer.matchData || phase !== 'waiting') return;
+
+    const { role: assignedRole } = multiplayer.matchData;
+    setRole(assignedRole);
+
+    // Stop fallback countdown
+    if (waitingIntervalRef.current) {
+      clearInterval(waitingIntervalRef.current);
+      waitingIntervalRef.current = null;
+    }
+
+    if (assignedRole === 'enqueteur') {
+      startMultiplayerGame();
+    } else {
+      // Enquêté: simple interface, just start the timer
+      setPhase('playing');
+      start();
+      setEnqueteMessages([{
+        id: uuidv4(),
+        content: "Un enquêteur va vous poser des questions. Répondez naturellement, comme si vous étiez un humain ordinaire !",
+        senderId: 'system',
+        timestamp: new Date(),
+        isFromAI: false,
+      }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiplayer.matchData]);
+
+  // ─── Multiplayer: process incoming messages ───
+  useEffect(() => {
+    const msgs = multiplayer.receivedMessages;
+    if (msgs.length <= processedMsgCountRef.current) return;
+
+    const newMsgs = msgs.slice(processedMsgCountRef.current);
+    processedMsgCountRef.current = msgs.length;
+
+    for (const msg of newMsgs) {
+      const currentRole = roleRef.current;
+      const currentSession = sessionRef.current;
+
+      if (currentRole === 'enqueteur' && currentSession) {
+        // Message from the human partner → add to the human chat
+        const newMessage: Message = {
+          id: msg.id,
+          content: msg.content,
+          senderId: 'human-player',
+          timestamp: new Date(msg.timestamp),
+          isFromAI: false,
+        };
+        if (currentSession.humanChat === 'A') {
+          setTypingA(false);
+          setMessagesA(prev => [...prev, newMessage]);
+        } else {
+          setTypingB(false);
+          setMessagesB(prev => [...prev, newMessage]);
+        }
+      } else if (currentRole === 'enquete') {
+        // Message from the enquêteur → add to the enquêté's chat
+        const newMessage: Message = {
+          id: msg.id,
+          content: msg.content,
+          senderId: 'enqueteur',
+          timestamp: new Date(msg.timestamp),
+          isFromAI: false,
+        };
+        setEnqueteMessages(prev => [...prev, newMessage]);
+      }
+    }
+  }, [multiplayer.receivedMessages.length]);
+
+  // ─── Multiplayer: partner typing indicator (for enquêteur) ───
+  useEffect(() => {
+    if (role !== 'enqueteur' || !session) return;
+    if (session.humanChat === 'A') {
+      setTypingA(multiplayer.partnerTyping);
+    } else {
+      setTypingB(multiplayer.partnerTyping);
+    }
+  }, [multiplayer.partnerTyping, role, session]);
+
+  // ─── Multiplayer: notify partner when enquêteur transitions to voting ───
+  useEffect(() => {
+    if (phase === 'voting' && multiplayer.matchData && role === 'enqueteur') {
+      multiplayer.sendGameEnd();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // ─── Multiplayer: game ended by partner (for enquêté) ───
+  useEffect(() => {
+    if (multiplayer.gameEnded && role === 'enquete' && phase === 'playing') {
+      setPhase('result');
+    }
+  }, [multiplayer.gameEnded, role, phase]);
+
+  // ==================== HELPERS ====================
+
   const getRandomPersona = useCallback((excludeId?: string) => {
     const available = personas.filter(p => p.id !== excludeId);
     return available[Math.floor(Math.random() * available.length)] || personas[0];
   }, [personas]);
 
-  // Generate room code
-  const generateRoomCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
+  const generateRoomCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
   // ==================== START GAME ====================
 
@@ -85,6 +214,7 @@ export function PlayPage() {
     if (!personaA) return;
     const pB = personaB || getRandomPersona(personaA.id);
     setPersonaB(pB);
+    setRole(null);
 
     const newSession: ChatSession = {
       id: uuidv4(),
@@ -104,72 +234,14 @@ export function PlayPage() {
     setPhase('playing');
     start();
 
-    // Welcome messages from both AIs
     setTimeout(() => setMessagesA([{
-      id: uuidv4(),
-      content: "Salut ! Prêt à discuter ?",
-      senderId: 'ai-a',
-      timestamp: new Date(),
-      isFromAI: true,
+      id: uuidv4(), content: "Salut ! Prêt à discuter ?",
+      senderId: 'ai-a', timestamp: new Date(), isFromAI: true,
     }]), 500);
-
     setTimeout(() => setMessagesB([{
-      id: uuidv4(),
-      content: "Hey ! C'est parti ?",
-      senderId: 'ai-b',
-      timestamp: new Date(),
-      isFromAI: true,
+      id: uuidv4(), content: "Hey ! C'est parti ?",
+      senderId: 'ai-b', timestamp: new Date(), isFromAI: true,
     }]), 800);
-  };
-
-  const startWaitingRoom = (mode: WaitingMode = 'generic') => {
-    if (!personaA) return;
-    const pB = personaB || getRandomPersona(personaA.id);
-    setPersonaB(pB);
-
-    const code = mode === 'private' ? generateRoomCode() : 'PUBLIC';
-    setRoomCode(code);
-    setWaitingMode(mode);
-    setPhase('waiting');
-    setWaitingCountdown(60);
-    setWaitingElapsed(0);
-
-    // Start countdown - tick every second
-    waitingIntervalRef.current = window.setInterval(() => {
-      setWaitingCountdown(prev => {
-        if (prev <= 1) {
-          if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-      setWaitingElapsed(prev => prev + 1);
-    }, 1000);
-  };
-
-  // When countdown reaches 0, fall back to solo
-  useEffect(() => {
-    if (waitingCountdown === 0 && phase === 'waiting') {
-      startSoloGame();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waitingCountdown, phase]);
-
-  // Cleanup waiting interval
-  useEffect(() => {
-    return () => {
-      if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
-    };
-  }, []);
-
-  const joinRoom = () => {
-    if (!joinCode.trim()) return;
-    // In a full implementation, this would call the matchmaking API
-    // For now, start a multiplayer-simulated game
-    if (!personaA) {
-      setPersonaA(getRandomPersona());
-    }
-    startMultiplayerGame();
   };
 
   const startMultiplayerGame = () => {
@@ -178,7 +250,6 @@ export function PlayPage() {
     if (!personaA) setPersonaA(pA);
     if (!personaB) setPersonaB(pB);
 
-    // In multiplayer, one chat is AI, one is "human"
     const aiChat = Math.random() > 0.5 ? 'A' : 'B';
 
     const newSession: ChatSession = {
@@ -201,23 +272,84 @@ export function PlayPage() {
     setPhase('playing');
     start();
 
-    const welcomeA: Message = {
-      id: uuidv4(),
-      content: aiChat === 'A' ? "Salut ! Prêt à discuter ?" : "Hey ! On commence ?",
-      senderId: aiChat === 'A' ? 'ai-a' : 'human-player',
-      timestamp: new Date(),
-      isFromAI: aiChat === 'A',
-    };
-    const welcomeB: Message = {
-      id: uuidv4(),
-      content: aiChat === 'B' ? "Salut ! Prêt à discuter ?" : "Coucou ! C'est parti ?",
-      senderId: aiChat === 'B' ? 'ai-b' : 'human-player',
-      timestamp: new Date(),
-      isFromAI: aiChat === 'B',
-    };
+    // Both chats get a greeting at random delays to avoid tells
+    const delayA = 800 + Math.random() * 2000;
+    const delayB = 800 + Math.random() * 2000;
+    setTimeout(() => setMessagesA([{
+      id: uuidv4(), content: "Salut ! Prêt à discuter ?",
+      senderId: 'interlocutor-a', timestamp: new Date(), isFromAI: aiChat === 'A',
+    }]), delayA);
+    setTimeout(() => setMessagesB([{
+      id: uuidv4(), content: "Hey ! C'est parti ?",
+      senderId: 'interlocutor-b', timestamp: new Date(), isFromAI: aiChat === 'B',
+    }]), delayB);
+  };
 
-    setTimeout(() => setMessagesA([welcomeA]), 500);
-    setTimeout(() => setMessagesB([welcomeB]), 800);
+  // ==================== WAITING ROOM ====================
+
+  const startWaitingRoom = (mode: WaitingMode = 'generic') => {
+    if (!personaA) return;
+    const pB = personaB || getRandomPersona(personaA.id);
+    setPersonaB(pB);
+
+    const code = mode === 'private' ? generateRoomCode() : 'PUBLIC';
+    setRoomCode(code);
+    setWaitingMode(mode);
+    setPhase('waiting');
+    setWaitingCountdown(60);
+    setWaitingElapsed(0);
+
+    // Start multiplayer matchmaking
+    if (mode === 'private') {
+      multiplayer.createPrivateRoom(code);
+    } else {
+      multiplayer.joinGenericQueue();
+    }
+
+    // Fallback countdown
+    waitingIntervalRef.current = window.setInterval(() => {
+      setWaitingCountdown(prev => {
+        if (prev <= 1) {
+          if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+      setWaitingElapsed(prev => prev + 1);
+    }, 1000);
+  };
+
+  // When countdown reaches 0, fall back to solo
+  useEffect(() => {
+    if (waitingCountdown === 0 && phase === 'waiting') {
+      multiplayer.disconnect();
+      startSoloGame();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingCountdown, phase]);
+
+  const joinRoom = () => {
+    if (!joinCode.trim()) return;
+    if (!personaA) setPersonaA(getRandomPersona());
+
+    const code = joinCode.trim().toUpperCase();
+    setRoomCode(code);
+    setPhase('waiting');
+    setWaitingCountdown(60);
+    setWaitingElapsed(0);
+
+    multiplayer.joinPrivateRoom(code);
+
+    waitingIntervalRef.current = window.setInterval(() => {
+      setWaitingCountdown(prev => {
+        if (prev <= 1) {
+          if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+      setWaitingElapsed(prev => prev + 1);
+    }, 1000);
   };
 
   // ==================== SEND MESSAGES ====================
@@ -226,51 +358,27 @@ export function PlayPage() {
     if (!inputA.trim() || !session) return;
 
     const userMessage: Message = {
-      id: uuidv4(),
-      content: inputA.trim(),
-      senderId: currentUser?.id || '',
-      timestamp: new Date(),
-      isFromAI: false,
+      id: uuidv4(), content: inputA.trim(),
+      senderId: currentUser?.id || '', timestamp: new Date(), isFromAI: false,
     };
-
     setMessagesA(prev => [...prev, userMessage]);
     const question = inputA.trim();
     setInputA('');
-    setTypingA(true);
 
     const isAI = session.aiIsInChat === 'A' || session.aiIsInChat === 'both';
-    const persona = personaA;
 
-    if (isAI && persona) {
-      // Generate AI response, then add a realistic typing delay
-      const response = await generateAIResponse(persona, messagesA, question);
+    if (isAI && personaA) {
+      // AI response with realistic typing delay
+      setTypingA(true);
+      const response = await generateAIResponse(personaA, messagesA, question);
       const delay = computeTypingDelay(response);
       await new Promise(resolve => setTimeout(resolve, delay));
       setTypingA(false);
       setMessagesA(prev => [...prev, createAIMessage(response)]);
-    } else {
-      // Simulated human response (for multiplayer placeholder)
-      const delay = 2000 + Math.random() * 5000;
-      setTimeout(() => {
-        setTypingA(false);
-        const responses = [
-          "Ouais je vois ce que tu veux dire",
-          "Intéressant comme question !",
-          "Hmm laisse-moi réfléchir...",
-          "Ahah bonne question",
-          "C'est marrant que tu demandes ça",
-          "En vrai je sais pas trop",
-          "Pourquoi tu demandes ça ?",
-        ];
-        const humanResponse: Message = {
-          id: uuidv4(),
-          content: responses[Math.floor(Math.random() * responses.length)],
-          senderId: 'human-player',
-          timestamp: new Date(),
-          isFromAI: false,
-        };
-        setMessagesA(prev => [...prev, humanResponse]);
-      }, delay);
+    } else if (multiplayer.matchData) {
+      // Real human partner via BroadcastChannel
+      multiplayer.sendMessage(question);
+      // Typing indicator will come from partner's TYPING events
     }
   };
 
@@ -278,51 +386,42 @@ export function PlayPage() {
     if (!inputB.trim() || !session) return;
 
     const userMessage: Message = {
-      id: uuidv4(),
-      content: inputB.trim(),
-      senderId: currentUser?.id || '',
-      timestamp: new Date(),
-      isFromAI: false,
+      id: uuidv4(), content: inputB.trim(),
+      senderId: currentUser?.id || '', timestamp: new Date(), isFromAI: false,
     };
-
     setMessagesB(prev => [...prev, userMessage]);
     const question = inputB.trim();
     setInputB('');
-    setTypingB(true);
 
     const isAI = session.aiIsInChat === 'B' || session.aiIsInChat === 'both';
-    const persona = personaB;
 
-    if (isAI && persona) {
-      // Generate AI response, then add a realistic typing delay
-      const response = await generateAIResponse(persona, messagesB, question);
+    if (isAI && personaB) {
+      setTypingB(true);
+      const response = await generateAIResponse(personaB, messagesB, question);
       const delay = computeTypingDelay(response);
       await new Promise(resolve => setTimeout(resolve, delay));
       setTypingB(false);
       setMessagesB(prev => [...prev, createAIMessage(response)]);
-    } else {
-      const delay = 2000 + Math.random() * 5000;
-      setTimeout(() => {
-        setTypingB(false);
-        const responses = [
-          "Ah oui carrément",
-          "Mmh je sais pas trop",
-          "Tu penses ?",
-          "C'est une bonne remarque",
-          "Franchement...",
-          "Bah écoute oui pourquoi pas",
-          "Je suis pas sûr de comprendre",
-        ];
-        const humanResponse: Message = {
-          id: uuidv4(),
-          content: responses[Math.floor(Math.random() * responses.length)],
-          senderId: 'human-player',
-          timestamp: new Date(),
-          isFromAI: false,
-        };
-        setMessagesB(prev => [...prev, humanResponse]);
-      }, delay);
+    } else if (multiplayer.matchData) {
+      multiplayer.sendMessage(question);
     }
+  };
+
+  // Enquêté sends a message back to the enquêteur
+  const sendEnqueteMessage = () => {
+    if (!enqueteInput.trim()) return;
+    const content = enqueteInput.trim();
+
+    const msg: Message = {
+      id: uuidv4(), content,
+      senderId: currentUser?.id || 'enquete',
+      timestamp: new Date(), isFromAI: false,
+    };
+    setEnqueteMessages(prev => [...prev, msg]);
+    setEnqueteInput('');
+
+    // Relay to the enquêteur
+    multiplayer.sendMessage(content);
   };
 
   // ==================== VOTE ====================
@@ -332,7 +431,6 @@ export function PlayPage() {
 
     let isCorrect = false;
     if (session.aiIsInChat === 'both') {
-      // Both are AI - always correct (the point is the experience)
       isCorrect = true;
     } else {
       isCorrect = vote === session.aiIsInChat;
@@ -349,30 +447,31 @@ export function PlayPage() {
     dispatch({
       type: 'ADD_VOTE',
       payload: {
-        id: uuidv4(),
-        sessionId: session.id,
-        enqueteurId: currentUser?.id || '',
-        votedChat: vote,
-        justification: justification.trim(),
-        isCorrect,
-        timestamp: new Date(),
+        id: uuidv4(), sessionId: session.id,
+        enqueteurId: currentUser?.id || '', votedChat: vote,
+        justification: justification.trim(), isCorrect, timestamp: new Date(),
       },
     });
 
     dispatch({
       type: 'UPDATE_SESSION',
       payload: {
-        ...session,
-        status: 'completed',
-        endTime: new Date(),
+        ...session, status: 'completed', endTime: new Date(),
         messages: { chatA: messagesA, chatB: messagesB },
       },
     });
+
+    // Notify partner that game ended
+    if (multiplayer.matchData) {
+      multiplayer.sendGameEnd();
+    }
 
     setPhase('result');
   };
 
   const playAgain = () => {
+    multiplayer.disconnect();
+    processedMsgCountRef.current = 0;
     setPhase('select');
     setPersonaA(null);
     setPersonaB(null);
@@ -385,6 +484,9 @@ export function PlayPage() {
     setRoomCode('');
     setJoinCode('');
     setGameMode('solo');
+    setRole(null);
+    setEnqueteMessages([]);
+    setEnqueteInput('');
   };
 
   // ==================== RENDER: SELECT PHASE ====================
@@ -399,7 +501,7 @@ export function PlayPage() {
           </Link>
 
           {/* Game mode selection */}
-          <RetroContainer title="⚙️ MODE DE JEU" className="mt-4 mb-6">
+          <RetroContainer title="MODE DE JEU" className="mt-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
                 onClick={() => setGameMode('solo')}
@@ -409,11 +511,11 @@ export function PlayPage() {
                     : 'border-gray-600 hover:border-[#00ff41]'
                 }`}
               >
-                <p className="text-2xl mb-2">🤖 SOLO (2 IAs)</p>
+                <p className="text-2xl mb-2">SOLO (2 IAs)</p>
                 <p className="retro-text-amber text-sm">
                   Affrontez deux IAs avec des personas différents. Disponible immédiatement.
                 </p>
-                {gameMode === 'solo' && <span className="text-xl mt-2 block">✓ Sélectionné</span>}
+                {gameMode === 'solo' && <span className="text-xl mt-2 block">Sélectionné</span>}
               </button>
               <button
                 onClick={() => setGameMode('multiplayer')}
@@ -423,17 +525,25 @@ export function PlayPage() {
                     : 'border-gray-600 hover:border-[#00ffff]'
                 }`}
               >
-                <p className="text-2xl retro-text-cyan mb-2">👥 MULTI (IA + Humain)</p>
+                <p className="text-2xl retro-text-cyan mb-2">MULTI (IA + Humain)</p>
                 <p className="retro-text-amber text-sm">
-                  Salle d'attente pour jouer avec un autre élève. Si personne ne rejoint en 30s, la partie commence avec 2 IAs.
+                  Salle d'attente pour jouer avec un autre élève.
+                  Un joueur sera enquêteur, l'autre répondra.
+                  Fallback 2 IAs si personne ne rejoint.
                 </p>
-                {gameMode === 'multiplayer' && <span className="text-xl mt-2 block retro-text-cyan">✓ Sélectionné</span>}
+                {gameMode === 'multiplayer' && <span className="text-xl mt-2 block retro-text-cyan">Sélectionné</span>}
               </button>
             </div>
           </RetroContainer>
 
           {/* Persona selection */}
-          <RetroContainer title="🎭 CHOISISSEZ LES PERSONAS" className="mb-6">
+          <RetroContainer title="CHOISISSEZ LES PERSONAS" className="mb-6">
+            {gameMode === 'multiplayer' && (
+              <p className="retro-text-amber text-sm mb-4">
+                Les personas sont utilisés si vous devenez enquêteur. Si vous devenez enquêté, vous répondrez avec votre propre personnalité.
+              </p>
+            )}
+
             <p className="text-lg mb-4">
               <span className="retro-text-amber">Persona A</span> (chat vert) :
               {personaA && <span className="ml-2 glow-text">{personaA.name}</span>}
@@ -497,9 +607,8 @@ export function PlayPage() {
 
           {/* Multiplayer options */}
           {gameMode === 'multiplayer' && (
-            <RetroContainer title="🔗 REJOINDRE OU CRÉER UNE SALLE" className="mb-6">
+            <RetroContainer title="REJOINDRE OU CRÉER UNE SALLE" className="mb-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                {/* Generic queue */}
                 <button
                   onClick={() => setWaitingMode('generic')}
                   className={`p-4 border-2 transition-all text-left ${
@@ -508,14 +617,13 @@ export function PlayPage() {
                       : 'border-gray-600 hover:border-[#00ff41]'
                   }`}
                 >
-                  <p className="text-xl mb-1">🌐 FILE GÉNÉRIQUE</p>
+                  <p className="text-xl mb-1">FILE GÉNÉRIQUE</p>
                   <p className="retro-text-amber text-sm">
-                    Rejoindre la file d'attente publique. Le premier joueur disponible sera jumelé avec vous.
+                    File d'attente publique. Le premier joueur disponible sera jumelé avec vous.
                   </p>
-                  {waitingMode === 'generic' && <span className="text-lg mt-1 block">✓ Sélectionné</span>}
+                  {waitingMode === 'generic' && <span className="text-lg mt-1 block">Sélectionné</span>}
                 </button>
 
-                {/* Private room */}
                 <button
                   onClick={() => setWaitingMode('private')}
                   className={`p-4 border-2 transition-all text-left ${
@@ -524,15 +632,14 @@ export function PlayPage() {
                       : 'border-gray-600 hover:border-[#00ffff]'
                   }`}
                 >
-                  <p className="text-xl retro-text-cyan mb-1">🔒 SALLE PRIVÉE</p>
+                  <p className="text-xl retro-text-cyan mb-1">SALLE PRIVÉE</p>
                   <p className="retro-text-amber text-sm">
-                    Créer ou rejoindre une salle avec un code. Partagez le code avec un camarade.
+                    Créer une salle avec un code ou rejoindre une salle existante.
                   </p>
-                  {waitingMode === 'private' && <span className="text-lg mt-1 block retro-text-cyan">✓ Sélectionné</span>}
+                  {waitingMode === 'private' && <span className="text-lg mt-1 block retro-text-cyan">Sélectionné</span>}
                 </button>
               </div>
 
-              {/* Code input for private room */}
               {waitingMode === 'private' && (
                 <div className="mt-4">
                   <p className="mb-2 retro-text-amber">Entrez un code pour rejoindre une salle existante :</p>
@@ -554,7 +661,7 @@ export function PlayPage() {
                     </button>
                   </div>
                   <p className="text-sm retro-text-cyan mt-2">
-                    Ou cliquez "Créer une salle" ci-dessous pour obtenir un nouveau code.
+                    Ou cliquez ci-dessous pour créer une nouvelle salle.
                   </p>
                 </div>
               )}
@@ -568,10 +675,10 @@ export function PlayPage() {
               className="retro-btn w-full"
             >
               {gameMode === 'solo'
-                ? '▶ LANCER LA PARTIE (2 IAs)'
+                ? '> LANCER LA PARTIE (2 IAs)'
                 : waitingMode === 'generic'
-                  ? '▶ REJOINDRE LA FILE D\'ATTENTE'
-                  : '▶ CRÉER UNE SALLE PRIVÉE'
+                  ? '> REJOINDRE LA FILE D\'ATTENTE'
+                  : '> CRÉER UNE SALLE PRIVÉE'
               }
             </button>
           )}
@@ -590,7 +697,7 @@ export function PlayPage() {
       <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
         <div className="scanline"></div>
         <RetroContainer
-          title={isPrivate ? "🔒 SALLE PRIVÉE" : "🌐 FILE D'ATTENTE PUBLIQUE"}
+          title={isPrivate ? "SALLE PRIVÉE" : "FILE D'ATTENTE PUBLIQUE"}
           className="max-w-lg w-full"
         >
           <div className="text-center py-6">
@@ -604,6 +711,9 @@ export function PlayPage() {
                     {roomCode}
                   </p>
                 </div>
+                <p className="text-sm retro-text-amber mb-4">
+                  L'autre joueur doit entrer ce code dans "Rejoindre une salle".
+                </p>
               </>
             ) : (
               <>
@@ -616,7 +726,6 @@ export function PlayPage() {
               </>
             )}
 
-            {/* Animated waiting indicator */}
             <div className="typing-indicator justify-center mb-4">
               <div className="typing-dot"></div>
               <div className="typing-dot"></div>
@@ -646,15 +755,13 @@ export function PlayPage() {
             </p>
 
             <div className="flex gap-4 justify-center mt-6 flex-wrap">
-              <button
-                onClick={startSoloGame}
-                className="retro-btn"
-              >
-                ▶ Commencer maintenant (2 IAs)
+              <button onClick={() => { multiplayer.disconnect(); startSoloGame(); }} className="retro-btn">
+                Commencer maintenant (2 IAs)
               </button>
               <button
                 onClick={() => {
                   if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
+                  multiplayer.disconnect();
                   playAgain();
                 }}
                 className="retro-btn retro-btn-amber"
@@ -668,32 +775,124 @@ export function PlayPage() {
     );
   }
 
-  // ==================== RENDER: PLAYING ====================
+  // ==================== RENDER: PLAYING (ENQUÊTÉ) ====================
+
+  if (phase === 'playing' && role === 'enquete') {
+    const isGameOver = multiplayer.gameEnded || isExpired;
+
+    return (
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="scanline"></div>
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-4">
+            <div className={`retro-timer ${timeLeft < 60 ? 'warning' : ''}`}>
+              {formatTime()}
+            </div>
+            <p className="retro-text-cyan text-xl mt-2">
+              Vous êtes l'ENQUÊTÉ(E)
+            </p>
+            <p className="text-sm retro-text-amber mt-1">
+              Un enquêteur vous pose des questions. Répondez naturellement pour le convaincre que vous êtes humain !
+            </p>
+          </div>
+
+          <RetroContainer title="CONVERSATION AVEC L'ENQUÊTEUR">
+            <div ref={enqueteChatRef} className="chat-container mb-4">
+              {enqueteMessages.map(msg => {
+                const isMine = msg.senderId === (currentUser?.id || 'enquete');
+                const isSystem = msg.senderId === 'system';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`chat-message ${
+                      isSystem
+                        ? 'text-center retro-text-amber opacity-80'
+                        : isMine
+                          ? 'chat-message-sent'
+                          : 'chat-message-received'
+                    }`}
+                  >
+                    {!isSystem && !isMine && (
+                      <span className="text-xs retro-text-amber block mb-1">Enquêteur</span>
+                    )}
+                    <p className="text-lg">{msg.content}</p>
+                  </div>
+                );
+              })}
+              {multiplayer.partnerTyping && (
+                <div className="typing-indicator">
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                  <div className="typing-dot"></div>
+                </div>
+              )}
+            </div>
+
+            {isGameOver ? (
+              <div className="text-center py-4 retro-text-amber">
+                La conversation est terminée.
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={enqueteInput}
+                  onChange={(e) => {
+                    setEnqueteInput(e.target.value);
+                    multiplayer.sendTyping();
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && sendEnqueteMessage()}
+                  className="retro-input flex-1"
+                  placeholder="Tapez votre réponse..."
+                />
+                <button
+                  onClick={sendEnqueteMessage}
+                  className="retro-btn"
+                  disabled={!enqueteInput.trim()}
+                >
+                  Envoyer
+                </button>
+              </div>
+            )}
+          </RetroContainer>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== RENDER: PLAYING (ENQUÊTEUR / SOLO) ====================
 
   if (phase === 'playing') {
-    const modeLabel = session?.aiIsInChat === 'both'
-      ? '🤖 Mode Solo - Les deux sont des IAs'
-      : '👥 Mode Multi - Un humain, une IA';
+    const isSolo = session?.aiIsInChat === 'both';
+    const modeLabel = isSolo
+      ? 'Mode Solo - Les deux sont des IAs'
+      : 'Mode Multi - Un humain, une IA';
 
     return (
       <div className="min-h-screen p-4">
         <div className="scanline"></div>
         <div className="max-w-7xl mx-auto">
-          {/* Timer + mode */}
           <div className="text-center mb-4">
             <div className={`retro-timer ${timeLeft < 60 ? 'warning' : ''}`}>
-              ⏱ {formatTime()}
+              {formatTime()}
             </div>
             <p className="retro-text-amber text-lg">{modeLabel}</p>
-            <p className="text-sm retro-text-cyan mt-1">
-              Trouvez laquelle des deux IAs est la plus convaincante — ou repérez l'humain !
-            </p>
+            {role === 'enqueteur' && (
+              <p className="text-sm retro-text-cyan mt-1">
+                Vous êtes l'ENQUÊTEUR. Un interlocuteur est humain, l'autre est une IA. Trouvez lequel !
+              </p>
+            )}
+            {!role && (
+              <p className="text-sm retro-text-cyan mt-1">
+                Trouvez laquelle des deux IAs est la plus convaincante — ou repérez l'humain !
+              </p>
+            )}
           </div>
 
           {/* Two chats */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Chat A */}
-            <RetroContainer title={`💬 INTERLOCUTEUR A — ${personaA?.name || '?'}`}>
+            <RetroContainer title={`INTERLOCUTEUR A — ${personaA?.name || '?'}`}>
               <div ref={chatARef} className="chat-container mb-4">
                 {messagesA.map(msg => (
                   <div
@@ -728,13 +927,13 @@ export function PlayPage() {
                   className="retro-btn"
                   disabled={!inputA.trim() || isExpired}
                 >
-                  ➤
+                  Envoyer
                 </button>
               </div>
             </RetroContainer>
 
             {/* Chat B */}
-            <RetroContainer title={`💬 INTERLOCUTEUR B — ${personaB?.name || '?'}`} className="retro-border-cyan">
+            <RetroContainer title={`INTERLOCUTEUR B — ${personaB?.name || '?'}`} className="retro-border-cyan">
               <div ref={chatBRef} className="chat-container mb-4" style={{ borderColor: 'var(--retro-cyan)' }}>
                 {messagesB.map(msg => (
                   <div
@@ -771,7 +970,7 @@ export function PlayPage() {
                   className="retro-btn retro-btn-cyan"
                   disabled={!inputB.trim() || isExpired}
                 >
-                  ➤
+                  Envoyer
                 </button>
               </div>
             </RetroContainer>
@@ -779,7 +978,7 @@ export function PlayPage() {
 
           <div className="text-center mt-6">
             <button onClick={() => setPhase('voting')} className="retro-btn retro-btn-amber">
-              ✓ J'AI ASSEZ D'INDICES — VOTER
+              J'AI ASSEZ D'INDICES — VOTER
             </button>
           </div>
         </div>
@@ -795,7 +994,7 @@ export function PlayPage() {
     return (
       <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
         <div className="scanline"></div>
-        <RetroContainer title="🗳️ VOTE — QUI EST L'IA ?" className="max-w-2xl w-full">
+        <RetroContainer title="VOTE — QUI EST L'IA ?" className="max-w-2xl w-full">
           <p className="text-xl text-center mb-4">
             {isSolo ? (
               <>Laquelle des deux IAs vous a semblé la <span className="retro-text-magenta">moins humaine</span> ?</>
@@ -819,10 +1018,10 @@ export function PlayPage() {
                   : 'border-gray-600 hover:border-[#00ff41]'
               }`}
             >
-              <span className="text-4xl block mb-2">💬</span>
+              <span className="text-3xl block mb-2">A</span>
               <span className="text-xl">INTERLOCUTEUR A</span>
               <span className="block text-sm retro-text-amber mt-1">{personaA?.name}</span>
-              {vote === 'A' && <span className="block mt-2 text-3xl">✓</span>}
+              {vote === 'A' && <span className="block mt-2 text-3xl">*</span>}
             </button>
 
             <button
@@ -833,10 +1032,10 @@ export function PlayPage() {
                   : 'border-gray-600 hover:border-[#00ffff]'
               }`}
             >
-              <span className="text-4xl block mb-2">💬</span>
+              <span className="text-3xl block mb-2">B</span>
               <span className="text-xl retro-text-cyan">INTERLOCUTEUR B</span>
               <span className="block text-sm retro-text-amber mt-1">{personaB?.name}</span>
-              {vote === 'B' && <span className="block mt-2 text-3xl retro-text-cyan">✓</span>}
+              {vote === 'B' && <span className="block mt-2 text-3xl retro-text-cyan">*</span>}
             </button>
           </div>
 
@@ -864,7 +1063,49 @@ export function PlayPage() {
     );
   }
 
-  // ==================== RENDER: RESULT ====================
+  // ==================== RENDER: RESULT (ENQUÊTÉ) ====================
+
+  if (phase === 'result' && role === 'enquete') {
+    const myMessageCount = enqueteMessages.filter(
+      m => m.senderId === (currentUser?.id || 'enquete')
+    ).length;
+
+    return (
+      <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
+        <div className="scanline"></div>
+        <RetroContainer title="PARTIE TERMINÉE" className="max-w-2xl w-full">
+          <div className="text-center py-8">
+            <div className="text-6xl mb-6">
+              {isExpired ? '---' : ''}
+            </div>
+            <p className="text-2xl retro-text-cyan mb-4">
+              {multiplayer.gameEnded
+                ? "L'enquêteur a fait son choix !"
+                : "Temps écoulé !"
+              }
+            </p>
+            <p className="text-lg retro-text-amber mb-2">
+              Vous étiez l'enquêté(e).
+            </p>
+            <p className="text-lg mb-6">
+              Vous avez échangé <span className="glow-text">{myMessageCount}</span> messages avec l'enquêteur.
+            </p>
+            <p className="retro-text-amber text-sm mb-8">
+              L'enquêteur devait deviner si vous étiez humain ou IA.
+              Avez-vous été convaincant(e) ?
+            </p>
+
+            <div className="flex gap-4 justify-center flex-wrap">
+              <button onClick={playAgain} className="retro-btn">REJOUER</button>
+              <Link to="/" className="retro-btn retro-btn-cyan">MENU</Link>
+            </div>
+          </div>
+        </RetroContainer>
+      </div>
+    );
+  }
+
+  // ==================== RENDER: RESULT (ENQUÊTEUR / SOLO) ====================
 
   if (phase === 'result' && result) {
     const isSolo = session?.aiIsInChat === 'both';
@@ -873,13 +1114,12 @@ export function PlayPage() {
       <div className="min-h-screen p-4 md:p-8 flex items-center justify-center">
         <div className="scanline"></div>
         <RetroContainer
-          title={result.correct ? "✓ BONNE DÉTECTION !" : "✗ MAUVAISE DÉTECTION"}
+          title={result.correct ? "BONNE DÉTECTION !" : "MAUVAISE DÉTECTION"}
           className="max-w-2xl w-full"
         >
           <div className="text-center py-8">
             {isSolo ? (
               <>
-                <div className="text-6xl mb-6">🤖🤖</div>
                 <p className="text-2xl retro-text-amber mb-4">
                   Les deux étaient des IAs !
                 </p>
@@ -892,15 +1132,13 @@ export function PlayPage() {
               </>
             ) : result.correct ? (
               <>
-                <div className="text-6xl mb-6">🎉</div>
                 <p className="text-3xl glow-text mb-4">Félicitations !</p>
                 <p className="text-xl retro-text-amber mb-6">
-                  Vous avez correctement identifié l'IA ({session?.aiIsInChat}).
+                  Vous avez correctement identifié l'IA (interlocuteur {session?.aiIsInChat}).
                 </p>
               </>
             ) : (
               <>
-                <div className="text-6xl mb-6">🤖</div>
                 <p className="text-3xl retro-text-magenta mb-4">L'IA vous a dupé !</p>
                 <p className="text-xl retro-text-amber mb-6">
                   L'IA était l'interlocuteur <span className="glow-text">{session?.aiIsInChat}</span>, pas {vote}.
@@ -913,16 +1151,16 @@ export function PlayPage() {
                 +{result.points} POINTS
               </p>
               <div className="mt-4 text-lg">
-                {result.points >= 2 && <p>✓ Détection : +2 pts</p>}
-                {result.points === 3 && <p>✓ Justification argumentée : +1 pt bonus</p>}
+                {result.points >= 2 && <p>Détection correcte : +2 pts</p>}
+                {result.points === 3 && <p>Justification argumentée : +1 pt bonus</p>}
                 {!result.correct && <p className="retro-text-magenta">Aucun point cette fois</p>}
               </div>
             </div>
 
             <div className="flex gap-4 justify-center flex-wrap">
-              <button onClick={playAgain} className="retro-btn">▶ REJOUER</button>
-              <Link to="/scores" className="retro-btn retro-btn-amber">📊 CLASSEMENTS</Link>
-              <Link to="/" className="retro-btn retro-btn-cyan">🏠 MENU</Link>
+              <button onClick={playAgain} className="retro-btn">REJOUER</button>
+              <Link to="/scores" className="retro-btn retro-btn-amber">CLASSEMENTS</Link>
+              <Link to="/" className="retro-btn retro-btn-cyan">MENU</Link>
             </div>
           </div>
         </RetroContainer>
