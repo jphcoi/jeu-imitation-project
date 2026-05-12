@@ -13,8 +13,8 @@ export function RetroContainer({ children, title, className = '' }: RetroContain
         <div className="retro-title-bar">
           <span className="retro-title-text">{title}</span>
           <div className="retro-title-buttons">
-            <span className="retro-btn-minimize">−</span>
-            <span className="retro-btn-maximize">○</span>
+            <span className="retro-btn-minimize">─</span>
+            <span className="retro-btn-maximize">□</span>
             <span className="retro-btn-close">×</span>
           </div>
         </div>
