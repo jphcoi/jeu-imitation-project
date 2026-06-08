@@ -5,7 +5,6 @@ import { RetroContainer } from '../components/RetroContainer';
 
 export function LoginPage() {
   const [pseudo, setPseudo] = useState('');
-  const [sessionCode, setSessionCode] = useState('');
   const [schoolId, setSchoolId] = useState('');
   const [classId, setClassId] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
@@ -15,9 +14,8 @@ export function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pseudo.trim()) {
-      const sc = sessionCode.trim() || undefined;
-      login(pseudo.trim(), role, classId.trim() || undefined, schoolId.trim() || undefined, sc);
-      navigate(sc ? '/lobby' : '/');
+      login(pseudo.trim(), role, classId.trim() || undefined, schoolId.trim() || undefined);
+      navigate(role === 'student' ? '/lobby' : '/');
     }
   };
 
@@ -63,22 +61,6 @@ export function LoginPage() {
 
           <div>
             <label className="block mb-2 text-lg">
-              {'>'} CODE SESSION :
-            </label>
-            <input
-              type="text"
-              value={sessionCode}
-              onChange={(e) => setSessionCode(e.target.value.toUpperCase())}
-              className="retro-input"
-              placeholder="Ex: GAME-42 (donné par l'enseignant)..."
-            />
-            <p className="text-xs retro-text-amber mt-1 opacity-70">
-              Code partagé entre deux classes de deux établissements différents pour jouer ensemble.
-            </p>
-          </div>
-
-          <div>
-            <label className="block mb-2 text-lg">
               {'>'} CODE ÉTABLISSEMENT :
             </label>
             <input
@@ -89,7 +71,7 @@ export function LoginPage() {
               placeholder="Ex: LYCEE-PARIS-01..."
             />
             <p className="text-xs retro-text-amber mt-1 opacity-70">
-              Identifie votre école. Doit être différent de l'école partenaire.
+              Donné par votre enseignant. Permet de vous connecter avec des élèves d'un autre établissement.
             </p>
           </div>
 
