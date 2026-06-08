@@ -303,7 +303,7 @@ export function PlayPage() {
     if (mode === 'private') {
       multiplayer.createPrivateRoom(code);
     } else {
-      multiplayer.joinGenericQueue();
+      multiplayer.joinGenericQueue(currentUser?.schoolId, currentUser?.classId);
     }
 
     // Fallback countdown

@@ -52,6 +52,13 @@ interface Room {
   createdAt: number;
 }
 
+interface QueueEntry {
+  userId: string;
+  timestamp: number;
+  schoolId?: string;
+  classId?: string;
+}
+
 // ─── Handler ───
 
 export default async function handler(request: Request): Promise<Response> {
@@ -128,16 +135,18 @@ export default async function handler(request: Request): Promise<Response> {
       // JOIN GENERIC QUEUE
       // ═══════════════════════════════════════
       case 'join-queue': {
-        const { userId } = body;
+        const { userId, schoolId, classId } = body as { userId: string; schoolId?: string; classId?: string };
 
         // Check if someone is already waiting
         const qRaw = await redis('GET', 'queue:generic') as string | null;
 
         if (qRaw) {
-          const q = JSON.parse(qRaw) as { userId: string; timestamp: number };
+          const q = JSON.parse(qRaw) as QueueEntry;
 
-          // Match if it's a different user and not stale (< 2 min)
-          if (q.userId !== userId && Date.now() - q.timestamp < 120_000) {
+          // Only match users from different schools (or if no school info provided on either side)
+          const sameSchool = schoolId && q.schoolId && schoolId === q.schoolId;
+
+          if (q.userId !== userId && Date.now() - q.timestamp < 120_000 && !sameSchool) {
             const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const hostIsEnqueteur = Math.random() > 0.5;
 
@@ -167,8 +176,9 @@ export default async function handler(request: Request): Promise<Response> {
           }
         }
 
-        // No match yet → put myself in the queue
-        await redis('SET', 'queue:generic', JSON.stringify({ userId, timestamp: Date.now() }), 'EX', '120');
+        // No match yet → put myself in the queue with school/class info
+        const entry: QueueEntry = { userId, timestamp: Date.now(), schoolId, classId };
+        await redis('SET', 'queue:generic', JSON.stringify(entry), 'EX', '120');
         return json({ status: 'waiting' });
       }
 

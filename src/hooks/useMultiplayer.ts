@@ -190,9 +190,9 @@ export function useMultiplayer(userId: string) {
 
   // ─── Join generic queue ───
 
-  const joinGenericQueue = useCallback(async () => {
+  const joinGenericQueue = useCallback(async (schoolId?: string, classId?: string) => {
     setIsSearching(true);
-    const data = await relay({ action: 'join-queue', userId });
+    const data = await relay({ action: 'join-queue', userId, schoolId, classId });
 
     if (data.error) {
       console.warn('[multiplayer] queue error:', data);
@@ -276,5 +276,18 @@ export function useMultiplayer(userId: string) {
     sendTyping,
     sendGameEnd,
     disconnect,
+  } as {
+    isSearching: boolean;
+    matchData: MatchData | null;
+    receivedMessages: ReceivedMessage[];
+    partnerTyping: boolean;
+    gameEnded: boolean;
+    createPrivateRoom: (roomCode: string) => Promise<void>;
+    joinPrivateRoom: (roomCode: string) => Promise<void>;
+    joinGenericQueue: (schoolId?: string, classId?: string) => Promise<void>;
+    sendMessage: (content: string) => void;
+    sendTyping: () => void;
+    sendGameEnd: () => void;
+    disconnect: () => void;
   };
 }

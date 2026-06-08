@@ -5,6 +5,7 @@ import { RetroContainer } from '../components/RetroContainer';
 
 export function LoginPage() {
   const [pseudo, setPseudo] = useState('');
+  const [schoolId, setSchoolId] = useState('');
   const [classId, setClassId] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const { login } = useGame();
@@ -13,7 +14,7 @@ export function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pseudo.trim()) {
-      login(pseudo.trim(), role, classId.trim() || undefined);
+      login(pseudo.trim(), role, classId.trim() || undefined, schoolId.trim() || undefined);
       navigate('/');
     }
   };
@@ -56,6 +57,22 @@ export function LoginPage() {
               required
               autoFocus
             />
+          </div>
+
+          <div>
+            <label className="block mb-2 text-lg">
+              {'>'} CODE ÉTABLISSEMENT :
+            </label>
+            <input
+              type="text"
+              value={schoolId}
+              onChange={(e) => setSchoolId(e.target.value.toUpperCase())}
+              className="retro-input"
+              placeholder="Ex: LYCEE-PARIS-01..."
+            />
+            <p className="text-xs retro-text-amber mt-1 opacity-70">
+              Demandez ce code à votre enseignant. Il permet de vous associer à des élèves d'un autre établissement.
+            </p>
           </div>
 
           <div>
