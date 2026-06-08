@@ -132,6 +132,73 @@ export default async function handler(request: Request): Promise<Response> {
       }
 
       // ═══════════════════════════════════════
+      // JOIN SESSION QUEUE (cross-school pairing)
+      // ═══════════════════════════════════════
+      case 'join-session': {
+        const { userId, sessionCode, schoolId, classId } = body as {
+          userId: string;
+          sessionCode: string;
+          schoolId?: string;
+          classId?: string;
+        };
+        const queueKey = `session:${sessionCode}:queue`;
+
+        // Get all users waiting in this session (stored as hash: userId → JSON)
+        const allEntries = await redis('HGETALL', queueKey) as string[] | null;
+
+        if (allEntries && allEntries.length > 0) {
+          for (let i = 0; i < allEntries.length; i += 2) {
+            const waitingUserId = allEntries[i];
+            const waitingData = JSON.parse(allEntries[i + 1]) as {
+              schoolId?: string;
+              classId?: string;
+              timestamp: number;
+            };
+
+            if (waitingUserId === userId) continue;
+            if (Date.now() - waitingData.timestamp > 180_000) continue;
+            const sameSchool = schoolId && waitingData.schoolId && schoolId === waitingData.schoolId;
+            if (sameSchool) continue;
+
+            // Found a cross-school match
+            const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const hostIsEnqueteur = Math.random() > 0.5;
+            const room: Room = {
+              host: waitingUserId,
+              guest: userId,
+              status: 'playing',
+              roles: {
+                [waitingUserId]: hostIsEnqueteur ? 'enqueteur' : 'enquete',
+                [userId]: hostIsEnqueteur ? 'enquete' : 'enqueteur',
+              },
+              createdAt: Date.now(),
+            };
+
+            await redisPipeline([
+              ['SET', `room:${roomCode}`, JSON.stringify(room), 'EX', '600'],
+              ['SET', `queue:match:${waitingUserId}`, roomCode, 'EX', '120'],
+              ['HDEL', queueKey, waitingUserId],
+            ]);
+
+            return json({
+              status: 'playing',
+              roomCode,
+              role: room.roles[userId],
+              partnerId: waitingUserId,
+            });
+          }
+        }
+
+        // No match yet — add self to the session queue
+        const entry = JSON.stringify({ schoolId, classId, timestamp: Date.now() });
+        await redisPipeline([
+          ['HSET', queueKey, userId, entry],
+          ['EXPIRE', queueKey, '180'],
+        ]);
+        return json({ status: 'waiting' });
+      }
+
+      // ═══════════════════════════════════════
       // JOIN GENERIC QUEUE
       // ═══════════════════════════════════════
       case 'join-queue': {

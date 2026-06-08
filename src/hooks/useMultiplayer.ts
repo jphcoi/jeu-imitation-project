@@ -243,6 +243,15 @@ export function useMultiplayer(userId: string) {
     relay({ action: 'game-end', roomCode: roomCodeRef.current });
   }, [relay]);
 
+  // ─── Rejoin an already-matched room (coming from lobby) ───
+
+  const rejoinRoom = useCallback(
+    (roomCode: string, role: MultiplayerRole, partnerId: string) => {
+      onMatched(partnerId, role, roomCode);
+    },
+    [onMatched],
+  );
+
   // ─── Disconnect & reset ───
 
   const disconnect = useCallback(() => {
@@ -272,22 +281,10 @@ export function useMultiplayer(userId: string) {
     createPrivateRoom,
     joinPrivateRoom,
     joinGenericQueue,
+    rejoinRoom,
     sendMessage,
     sendTyping,
     sendGameEnd,
     disconnect,
-  } as {
-    isSearching: boolean;
-    matchData: MatchData | null;
-    receivedMessages: ReceivedMessage[];
-    partnerTyping: boolean;
-    gameEnded: boolean;
-    createPrivateRoom: (roomCode: string) => Promise<void>;
-    joinPrivateRoom: (roomCode: string) => Promise<void>;
-    joinGenericQueue: (schoolId?: string, classId?: string) => Promise<void>;
-    sendMessage: (content: string) => void;
-    sendTyping: () => void;
-    sendGameEnd: () => void;
-    disconnect: () => void;
   };
 }

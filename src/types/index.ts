@@ -2,6 +2,7 @@ export interface User {
   id: string;
   pseudo: string;
   role: 'student' | 'teacher';
+  sessionCode?: string;
   schoolId?: string;
   classId?: string;
   createdAt: Date;

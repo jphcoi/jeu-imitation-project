@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { RetroContainer } from '../components/RetroContainer';
 import { useTimer } from '../hooks/useTimer';
 import { useMultiplayer } from '../hooks/useMultiplayer';
 import { generateAIResponse, createAIMessage } from '../utils/aiResponder';
 import type { Message, ChatSession, Persona, GameMode } from '../types';
+import type { MultiplayerRole } from '../hooks/useMultiplayer';
 import { v4 as uuidv4 } from 'uuid';
 
 type GamePhase = 'select' | 'waiting' | 'playing' | 'voting' | 'result';
@@ -23,6 +24,7 @@ function computeTypingDelay(responseText: string): number {
 export function PlayPage() {
   const { state, dispatch } = useGame();
   const { currentUser, personas } = state;
+  const location = useLocation();
 
   const [phase, setPhase] = useState<GamePhase>('select');
   const [personaA, setPersonaA] = useState<Persona | null>(null);
@@ -69,6 +71,17 @@ export function PlayPage() {
   roleRef.current = role;
 
   // ==================== EFFECTS ====================
+
+  // Handle arrival from lobby with a pre-matched room
+  useEffect(() => {
+    const ls = location.state as { fromLobby?: boolean; roomCode?: string; role?: string; partnerId?: string } | null;
+    if (!ls?.fromLobby || !ls.roomCode || !ls.role || !ls.partnerId) return;
+    setPhase('waiting');
+    multiplayer.rejoinRoom(ls.roomCode, ls.role as MultiplayerRole, ls.partnerId);
+    // Clear state so a page refresh doesn't re-trigger
+    window.history.replaceState({}, '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-scroll chats
   useEffect(() => {

@@ -205,7 +205,7 @@ function gameReducer(state: GameState, action: Action): GameState {
 interface GameContextType {
   state: GameState;
   dispatch: React.Dispatch<Action>;
-  login: (pseudo: string, role: 'student' | 'teacher', classId?: string, schoolId?: string) => void;
+  login: (pseudo: string, role: 'student' | 'teacher', classId?: string, schoolId?: string, sessionCode?: string) => void;
   logout: () => void;
   createPersona: (persona: Omit<Persona, 'id' | 'createdAt' | 'createdBy'>) => void;
 }
@@ -237,7 +237,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  const login = (pseudo: string, role: 'student' | 'teacher', classId?: string, schoolId?: string) => {
+  const login = (pseudo: string, role: 'student' | 'teacher', classId?: string, schoolId?: string, sessionCode?: string) => {
     const existingUser = state.knownUsers.find(
       u =>
         u.pseudo.toLowerCase() === pseudo.toLowerCase() &&
@@ -246,12 +246,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     );
 
     if (existingUser) {
-      dispatch({ type: 'SET_USER', payload: existingUser });
+      // Update sessionCode on re-login (session changes each class)
+      const updated = { ...existingUser, sessionCode: sessionCode || undefined };
+      dispatch({ type: 'SET_USER', payload: updated });
     } else {
       const user: User = {
         id: uuidv4(),
         pseudo,
         role,
+        sessionCode,
         schoolId,
         classId,
         createdAt: new Date(),

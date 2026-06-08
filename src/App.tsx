@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { GameProvider, useGame } from './context/GameContext';
 import { LoginPage } from './pages/LoginPage';
 import { HomePage } from './pages/HomePage';
+import { LobbyPage } from './pages/LobbyPage';
 import { PersonaPage } from './pages/PersonaPage';
 import { PlayPage } from './pages/PlayPage';
 import { ScoresPage } from './pages/ScoresPage';
@@ -47,6 +48,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <HomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/lobby"
+        element={
+          <ProtectedRoute>
+            <LobbyPage />
           </ProtectedRoute>
         }
       />
