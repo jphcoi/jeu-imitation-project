@@ -61,7 +61,6 @@ export function PersonaPage() {
   const [tab, setTab] = useState<Tab>('chatbot');
   // All personas from the same class (visible to classmates)
   const classPersonas = personas.filter(p => p.classId === (currentUser?.classId || 'default'));
-  const myPersonas = classPersonas.filter(p => p.createdBy === currentUser?.id);
 
   const deletePersona = (id: string) => {
     if (confirm('Supprimer ce personnage ?')) {
