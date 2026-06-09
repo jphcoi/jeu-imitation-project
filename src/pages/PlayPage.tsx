@@ -61,6 +61,11 @@ export function PlayPage() {
 
   const { timeLeft, isExpired, start, formatTime } = useTimer(300);
 
+  // Personas from other classes only (for fair cross-class play)
+  const playablePersonas = personas.filter(p => p.classId !== currentUser?.classId);
+  // Fallback to all personas if no cross-class ones exist yet
+  const availablePersonas = playablePersonas.length > 0 ? playablePersonas : personas;
+
   // Multiplayer hook
   const multiplayer = useMultiplayer(currentUser?.id || '');
 
@@ -215,9 +220,15 @@ export function PlayPage() {
   // ==================== HELPERS ====================
 
   const getRandomPersona = useCallback((excludeId?: string) => {
-    const available = personas.filter(p => p.id !== excludeId);
-    return available[Math.floor(Math.random() * available.length)] || personas[0];
-  }, [personas]);
+    // Prefer personas from a different class than the current player
+    const crossClass = personas.filter(
+      p => p.id !== excludeId && p.classId !== currentUser?.classId
+    );
+    const pool = crossClass.length > 0
+      ? crossClass
+      : personas.filter(p => p.id !== excludeId);
+    return pool[Math.floor(Math.random() * pool.length)] || personas[0];
+  }, [personas, currentUser?.classId]);
 
   const generateRoomCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -562,32 +573,39 @@ export function PlayPage() {
               {personaA && <span className="ml-2 glow-text">{personaA.name}</span>}
             </p>
 
-            {personas.length === 0 ? (
+            {availablePersonas.length === 0 ? (
               <div className="text-center py-8">
                 <p className="retro-text-amber text-xl mb-4">Aucun persona disponible !</p>
                 <Link to="/personas" className="retro-btn retro-btn-magenta">Créer un persona</Link>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-                {personas.map(persona => (
-                  <div
-                    key={persona.id}
-                    onClick={() => {
-                      setPersonaA(persona);
-                      if (personaB?.id === persona.id) setPersonaB(null);
-                    }}
-                    className={`retro-card cursor-pointer transition-all p-3 ${
-                      personaA?.id === persona.id
-                        ? 'border-[#00ff41] bg-[rgba(0,255,65,0.15)]'
-                        : 'hover:border-[#00ff41]'
-                    }`}
-                  >
-                    <p className="text-lg">{persona.name}, {persona.age} ans</p>
-                    <p className="retro-text-amber text-xs mt-1 truncate">{persona.description}</p>
-                    {persona.isDefault && <span className="text-xs retro-text-cyan">[par défaut]</span>}
-                  </div>
-                ))}
-              </div>
+              <>
+                {playablePersonas.length === 0 && personas.length > 0 && (
+                  <p className="retro-text-amber text-xs mb-3 opacity-70">
+                    Aucun personnage d'une autre classe disponible — affichage de tous les personnages.
+                  </p>
+                )}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+                  {availablePersonas.map(persona => (
+                    <div
+                      key={persona.id}
+                      onClick={() => {
+                        setPersonaA(persona);
+                        if (personaB?.id === persona.id) setPersonaB(null);
+                      }}
+                      className={`retro-card cursor-pointer transition-all p-3 ${
+                        personaA?.id === persona.id
+                          ? 'border-[#00ff41] bg-[rgba(0,255,65,0.15)]'
+                          : 'hover:border-[#00ff41]'
+                      }`}
+                    >
+                      <p className="text-lg">{persona.name}, {persona.age} ans</p>
+                      <p className="retro-text-amber text-xs mt-1 truncate">{persona.description}</p>
+                      {persona.isDefault && <span className="text-xs retro-text-cyan">[par défaut]</span>}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             <p className="text-lg mb-4">
@@ -600,7 +618,7 @@ export function PlayPage() {
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {personas.filter(p => p.id !== personaA?.id).map(persona => (
+              {availablePersonas.filter(p => p.id !== personaA?.id).map(persona => (
                 <div
                   key={persona.id}
                   onClick={() => setPersonaB(persona)}

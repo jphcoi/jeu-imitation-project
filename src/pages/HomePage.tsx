@@ -7,6 +7,8 @@ export function HomePage() {
   const { currentUser, personas, sessions, enqueteurScores } = state;
 
   const userScore = enqueteurScores.find(s => s.userId === currentUser?.id);
+  const studentNeedsPersona = currentUser?.role === 'student' &&
+    !personas.some(p => p.createdBy === currentUser?.id);
   const completedSessions = sessions.filter(s => s.status === 'completed').length;
 
   return (
@@ -31,6 +33,21 @@ export function HomePage() {
             Déconnexion
           </button>
         </div>
+
+        {/* Step 1 nudge for students without a persona yet */}
+        {studentNeedsPersona && (
+          <div className="retro-card retro-border-magenta mb-6 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="retro-text-magenta text-xl font-bold">ETAPE 1 — Crée ton personnage</p>
+              <p className="retro-text-amber text-lg mt-1">
+                Commence par créer un personnage fictif — c'est la première étape du jeu !
+              </p>
+            </div>
+            <Link to="/personas" className="retro-btn retro-btn-magenta shrink-0">
+              Créer mon personnage
+            </Link>
+          </div>
+        )}
 
         {/* Stats rapides */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

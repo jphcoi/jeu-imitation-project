@@ -25,6 +25,60 @@ interface RequestBody {
   lastQuestion: string;
 }
 
+// Known French teen slang / verlan / abbreviations to watch for
+const KNOWN_SLANG = new Set([
+  'mdr','ptdr','lol','xd','omg','wtf','ouf','chelou','wsh','wesh','bg','bg','go',
+  'frr','frérot','reuf','meuf','keuf','teuf','ouf','bails','wag','nique','tqt','jsp',
+  'jpp','jm','stp','svp','pk','pcq','pr','tt','tjrs','bcp','dc','ac','vs','pr',
+  'oklm','inshallah','wallah','franchement','grave','trop','vro','frero','bb',
+  'bonito','stylé','stylée','osef','cimer','relou','askip','risitas','dcp','t\'as',
+  'jtm','jte','jtdr','lmao','imo','tbh','ngl','fr','rn','atm','irl','irl',
+  'swag','swaggy','hype','vibe','kiffer','kiffé','kiffe','swaggué','zbeul',
+]);
+
+function extractUserLingo(conversationHistory: Array<{ content: string; isFromAI: boolean }>): string[] {
+  const userMessages = conversationHistory
+    .filter(m => !m.isFromAI)
+    .map(m => m.content)
+    .join(' ');
+
+  if (!userMessages.trim()) return [];
+
+  const tokens = userMessages
+    .toLowerCase()
+    .replace(/[^\w\s'àâäéèêëîïôùûüç]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const detected = new Set<string>();
+
+  for (const token of tokens) {
+    // Known slang list
+    if (KNOWN_SLANG.has(token)) {
+      detected.add(token);
+      continue;
+    }
+    // Abbreviations: 2-5 chars, mostly consonants (e.g. "jsp", "pk", "tqt")
+    if (token.length >= 2 && token.length <= 5 && /^[bcdfghjklmnpqrstvwxyz]{2,}$/i.test(token)) {
+      detected.add(token);
+      continue;
+    }
+    // Words with repeated letters for emphasis (e.g. "trooop", "noooon")
+    if (/(.)\1{2,}/.test(token)) {
+      detected.add(token);
+      continue;
+    }
+  }
+
+  // Also capture emoji strings from the original messages
+  const emojiMatches = userMessages.match(/[\p{Emoji}]+/gu) ?? [];
+  for (const e of emojiMatches) {
+    detected.add(e);
+  }
+
+  return [...detected].slice(0, 20); // cap to avoid bloating the prompt
+}
+
 export default async function handler(request: Request): Promise<Response> {
   // CORS preflight
   if (request.method === 'OPTIONS') {
