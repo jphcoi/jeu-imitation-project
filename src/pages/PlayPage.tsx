@@ -265,10 +265,17 @@ export function PlayPage() {
     const isAI = session.aiIsInChat === 'A' || session.aiIsInChat === 'both';
     if (isAI && personaA) {
       setTypingA(true);
-      const response = await generateAIResponse(personaA, messagesA, question);
+      const { response, followUp } = await generateAIResponse(personaA, messagesA, question);
       await new Promise(resolve => setTimeout(resolve, computeTypingDelay(response)));
       setTypingA(false);
       setMessagesA(prev => [...prev, createAIMessage(response)]);
+      if (followUp) {
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+        setTypingA(true);
+        await new Promise(resolve => setTimeout(resolve, computeTypingDelay(followUp)));
+        setTypingA(false);
+        setMessagesA(prev => [...prev, createAIMessage(followUp)]);
+      }
     } else if (multiplayer.matchData) {
       multiplayer.sendMessage(question);
     }
@@ -283,10 +290,17 @@ export function PlayPage() {
     const isAI = session.aiIsInChat === 'B' || session.aiIsInChat === 'both';
     if (isAI && personaB) {
       setTypingB(true);
-      const response = await generateAIResponse(personaB, messagesB, question);
+      const { response, followUp } = await generateAIResponse(personaB, messagesB, question);
       await new Promise(resolve => setTimeout(resolve, computeTypingDelay(response)));
       setTypingB(false);
       setMessagesB(prev => [...prev, createAIMessage(response)]);
+      if (followUp) {
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+        setTypingB(true);
+        await new Promise(resolve => setTimeout(resolve, computeTypingDelay(followUp)));
+        setTypingB(false);
+        setMessagesB(prev => [...prev, createAIMessage(followUp)]);
+      }
     } else if (multiplayer.matchData) {
       multiplayer.sendMessage(question);
     }

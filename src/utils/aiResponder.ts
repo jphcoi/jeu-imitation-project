@@ -140,7 +140,7 @@ async function generateAPIResponse(
   persona: Persona,
   conversationHistory: Message[],
   lastQuestion: string
-): Promise<string> {
+): Promise<{ response: string; followUp: string | null }> {
   console.log('🔄 Appel API:', API_URL);
 
   const response = await fetch(API_URL, {
@@ -175,7 +175,7 @@ async function generateAPIResponse(
 
   const data = await response.json();
   console.log('✅ Réponse reçue:', data);
-  return data.response;
+  return { response: data.response, followUp: data.followUp ?? null };
 }
 
 // ============ FONCTION PRINCIPALE ============
@@ -184,16 +184,14 @@ export async function generateAIResponse(
   persona: Persona,
   conversationHistory: Message[],
   lastQuestion: string
-): Promise<string> {
+): Promise<{ response: string; followUp: string | null }> {
   try {
-    // Essayer l'API LLM d'abord
-    const response = await generateAPIResponse(persona, conversationHistory, lastQuestion);
+    const result = await generateAPIResponse(persona, conversationHistory, lastQuestion);
     console.log('✓ Réponse générée par LLM');
-    return response;
+    return result;
   } catch (error) {
-    // Fallback sur la génération locale
     console.warn('⚠ API indisponible, fallback local:', error);
-    return generateFallbackResponse(persona, lastQuestion);
+    return { response: await generateFallbackResponse(persona, lastQuestion), followUp: null };
   }
 }
 
