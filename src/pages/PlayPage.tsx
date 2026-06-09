@@ -63,8 +63,10 @@ export function PlayPage() {
 
   const { timeLeft, isExpired, start, formatTime } = useTimer(300);
 
-  const playablePersonas = personas.filter(p => p.classId !== currentUser?.classId);
-  const availablePersonas = playablePersonas.length > 0 ? playablePersonas : personas;
+  // Show all personas from same school; when multiple schools exist, filter by schoolId
+  const availablePersonas = currentUser?.schoolId
+    ? personas.filter(p => !p.classId || p.classId.includes(currentUser.schoolId!))
+    : personas;
 
   const multiplayer = useMultiplayer(currentUser?.id || '');
 
@@ -154,10 +156,9 @@ export function PlayPage() {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   const getRandomPersona = useCallback((excludeId?: string) => {
-    const crossClass = personas.filter(p => p.id !== excludeId && p.classId !== currentUser?.classId);
-    const pool = crossClass.length > 0 ? crossClass : personas.filter(p => p.id !== excludeId);
+    const pool = availablePersonas.filter(p => p.id !== excludeId);
     return pool[Math.floor(Math.random() * pool.length)] || personas[0];
-  }, [personas, currentUser?.classId]);
+  }, [availablePersonas, personas]);
 
   const generateRoomCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -365,18 +366,13 @@ export function PlayPage() {
           {availablePersonas.length === 0 ? (
             <div className="rounded-2xl p-10 text-center mb-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
               <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun persona disponible</p>
-              <p className="text-sm mb-5" style={{ color: MUTED }}>Crée d'abord des personas dans une autre classe.</p>
+              <p className="text-sm mb-5" style={{ color: MUTED }}>Crée d'abord des personas pour pouvoir jouer.</p>
               <Link to="/personas" className="px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
                 Créer un persona
               </Link>
             </div>
           ) : (
             <div className="rounded-2xl overflow-hidden mb-6" style={{ border: `1px solid ${BORDER}` }}>
-              {playablePersonas.length === 0 && personas.length > 0 && (
-                <p className="px-6 py-2 text-xs" style={{ background: PANEL, color: MUTED, borderBottom: `1px solid ${BORDER}` }}>
-                  Aucun personnage d'une autre classe — affichage de tous les personnages.
-                </p>
-              )}
               {/* Persona A */}
               <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>

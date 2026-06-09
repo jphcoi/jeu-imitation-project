@@ -61,11 +61,15 @@ export function LoginPage() {
                 type="text"
                 value={schoolId}
                 onChange={e => setSchoolId(e.target.value.toUpperCase())}
+                list="school-codes"
                 className="retro-input"
-                placeholder="Ex: LYCEE-PARIS-01"
+                placeholder="LYCEE TEST 1"
               />
+              <datalist id="school-codes">
+                <option value="LYCEE TEST 1" />
+              </datalist>
               <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
-                Donné par votre enseignant. Permet de jouer avec d'autres établissements.
+                Donné par votre enseignant. Utilisez <strong>LYCEE TEST 1</strong> pour accéder à la version de test.
               </p>
             </div>
 

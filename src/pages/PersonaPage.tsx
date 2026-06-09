@@ -67,7 +67,11 @@ export function PersonaPage() {
   const { currentUser, personas } = state;
 
   const [tab, setTab] = useState<Tab>('chatbot');
-  const classPersonas = personas.filter(p => p.classId === (currentUser?.classId || 'default'));
+  // Show all personas from the same school; class filtering will be added when multiple schools are active
+  const visiblePersonas = currentUser?.schoolId
+    ? personas.filter(p => !p.classId || p.classId.includes(currentUser.schoolId!))
+    : personas;
+  const allPersonas = visiblePersonas.length > 0 ? visiblePersonas : personas;
 
   const deletePersona = (id: string) => {
     if (confirm('Supprimer ce personnage ?')) {
@@ -78,7 +82,7 @@ export function PersonaPage() {
   const TABS = [
     { id: 'chatbot' as Tab, label: 'Chatbot' },
     { id: 'manual' as Tab, label: 'Formulaire' },
-    { id: 'list' as Tab, label: `Personnages (${classPersonas.length})` },
+    { id: 'list' as Tab, label: `Personnages (${allPersonas.length})` },
   ];
 
   return (
@@ -138,12 +142,12 @@ export function PersonaPage() {
 
         {tab === 'list' && (
           <div>
-            {classPersonas.length === 0 ? (
+            {allPersonas.length === 0 ? (
               <div
                 className="rounded-2xl p-12 text-center"
                 style={{ background: CARD, border: `1px solid ${BORDER}` }}
               >
-                <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun personnage dans ta classe</p>
+                <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun personnage créé</p>
                 <p className="text-sm mb-5" style={{ color: MUTED }}>Utilise le chatbot ou le formulaire pour commencer.</p>
                 <button
                   onClick={() => setTab('chatbot')}
@@ -155,7 +159,7 @@ export function PersonaPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {classPersonas.map(persona => (
+                {allPersonas.map(persona => (
                   <PersonaCard
                     key={persona.id}
                     persona={persona}

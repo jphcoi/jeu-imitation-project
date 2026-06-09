@@ -93,7 +93,7 @@ export function DashboardPage() {
           <div className="flex items-center gap-4">
             <span className="text-2xl font-bold tracking-tight" style={{ color: TEXT }}>Jeu de l'Imitation</span>
             <span style={{ color: MUTED }}>·</span>
-            <h1 className="text-xl font-bold" style={{ color: TEXT }}>Tableau de bord</h1>
+            <h1 className="text-xl font-bold" style={{ color: TEXT }}>Enseignants / Administrateurs</h1>
           </div>
           <button
             onClick={logout}
@@ -263,55 +263,42 @@ export function DashboardPage() {
         {/* Personas */}
         {activeTab === 'personas' && (
           <div>
-            {personaScores.length === 0 ? (
-              <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun personna évalué</p>
+            <p className="text-xs mb-4" style={{ color: MUTED }}>{personas.length} personnage{personas.length !== 1 ? 's' : ''} créé{personas.length !== 1 ? 's' : ''}</p>
+            {personas.length === 0 ? (
+              <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun personnage créé pour l'instant.</p>
             ) : (
-              <div className="space-y-4">
-                {personaScores.map(score => {
-                  const persona = personas.find(p => p.id === score.personaId);
+              <div className="space-y-3">
+                {personas.map(persona => {
+                  const score = personaScores.find(s => s.personaId === persona.id);
                   return (
-                    <div key={score.personaId} className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-                      <div className="flex justify-between items-start mb-4">
+                    <div key={persona.id} className="rounded-2xl p-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                      <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h3 className="text-base font-bold" style={{ color: '#db2777' }}>{score.personaName}</h3>
-                          {persona?.description && (
-                            <p className="text-sm mt-0.5" style={{ color: MUTED }}>{persona.description}</p>
-                          )}
+                          <h3 className="text-sm font-bold" style={{ color: '#db2777' }}>{persona.name}, {persona.age} ans</h3>
+                          <p className="text-xs mt-0.5" style={{ color: MUTED }}>{persona.classId || '—'}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold tabular-nums" style={{ color: '#0891b2' }}>
-                            {score.credibilityIndex.toFixed(0)}%
-                          </p>
-                          <p className="text-xs" style={{ color: MUTED }}>Crédibilité IC</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4 text-center mb-4">
-                        {[
-                          { value: score.totalSessions, label: 'Sessions', color: TEXT },
-                          { value: score.timesDetectedAsAI, label: 'Détecté comme IA', color: '#db2777' },
-                          { value: score.totalSessions - score.timesDetectedAsAI, label: 'Passé pour humain', color: ACCENT },
-                        ].map(({ value, label, color }) => (
-                          <div key={label}>
-                            <p className="text-xl font-bold tabular-nums" style={{ color }}>{value}</p>
-                            <p className="text-xs mt-0.5" style={{ color: MUTED }}>{label}</p>
+                        {score ? (
+                          <div className="text-right">
+                            <p className="text-lg font-bold tabular-nums" style={{ color: '#0891b2' }}>{score.credibilityIndex.toFixed(0)}%</p>
+                            <p className="text-xs" style={{ color: MUTED }}>crédibilité · {score.totalSessions} session{score.totalSessions !== 1 ? 's' : ''}</p>
                           </div>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded-lg" style={{ background: PANEL, color: MUTED }}>Pas encore joué</span>
+                        )}
+                      </div>
+                      {persona.description && (
+                        <p className="text-xs mb-2 leading-relaxed" style={{ color: MUTED }}>{persona.description}</p>
+                      )}
+                      <div className="flex flex-wrap gap-1.5">
+                        {persona.traits.map(t => (
+                          <span key={t} className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${ACCENT}10`, color: ACCENT }}>{t}</span>
+                        ))}
+                        {persona.interests.map(i => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${PANEL}`, color: MUTED }}>{i}</span>
                         ))}
                       </div>
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: PANEL }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${score.credibilityIndex}%`,
-                            background: score.credibilityIndex > 50 ? '#0891b2' : '#db2777',
-                          }}
-                        />
-                      </div>
-                      {persona && (
-                        <p className="text-xs mt-3" style={{ color: MUTED }}>
-                          <span style={{ color: '#0891b2' }}>Traits :</span> {persona.traits.join(', ')}
-                          {' · '}
-                          <span style={{ color: '#0891b2' }}>Intérêts :</span> {persona.interests.join(', ')}
-                        </p>
+                      {persona.speakingStyle && (
+                        <p className="text-xs mt-2 italic" style={{ color: MUTED }}>"{persona.speakingStyle.slice(0, 120)}{persona.speakingStyle.length > 120 ? '…' : ''}"</p>
                       )}
                     </div>
                   );
