@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { RetroContainer } from '../components/RetroContainer';
@@ -363,7 +364,7 @@ function ManualCreator({
   const [customTrait, setCustomTrait] = useState('');
   const [customInterest, setCustomInterest] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim() || traits.length === 0 || interests.length === 0) return;
     createPersona({
