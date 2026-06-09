@@ -27,7 +27,7 @@ function computeTypingDelay(responseText: string): number {
   const charCount = responseText.length;
   const base = 250 + Math.random() * 350;   // 250–600ms base (read + react)
   const msPerChar = 30 + Math.random() * 25; // ~30–55ms per character typed
-  return Math.min(base + charCount * msPerChar, 15000);
+  return Math.min(base + charCount * msPerChar, 25000);
 }
 
 export function PlayPage() {
