@@ -22,7 +22,7 @@ export function LoginPage() {
     e.preventDefault();
     if (pseudo.trim()) {
       login(pseudo.trim(), role, classId.trim() || undefined, schoolId.trim() || undefined);
-      navigate(role === 'student' ? '/lobby' : '/');
+      navigate(role === 'student' ? '/' : '/dashboard');
     }
   };
 
@@ -81,31 +81,25 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-3" style={{ color: TEXT }}>Rôle</label>
-              <div className="flex gap-6">
-                {(['student', 'teacher'] as const).map(r => (
-                  <label key={r} className="flex items-center gap-2.5 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="role"
-                      value={r}
-                      checked={role === r}
-                      onChange={() => setRole(r)}
-                      className="sr-only"
-                    />
-                    <div
-                      className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
-                      style={{
-                        borderColor: role === r ? ACCENT : MUTED,
-                        background: role === r ? ACCENT : 'transparent',
-                      }}
-                    >
-                      {role === r && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                    </div>
-                    <span className="text-sm" style={{ color: role === r ? TEXT : MUTED }}>
-                      {r === 'student' ? 'Élève' : 'Enseignant'}
-                    </span>
-                  </label>
+              <label className="block text-sm font-medium mb-3" style={{ color: TEXT }}>Je suis…</label>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { value: 'student' as const, label: 'Élève', desc: 'Accès au jeu' },
+                  { value: 'teacher' as const, label: 'Enseignant', desc: 'Tableau de bord' },
+                ] as const).map(r => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRole(r.value)}
+                    className="rounded-xl p-4 text-left transition-all"
+                    style={{
+                      background: role === r.value ? `${ACCENT}08` : '#faf7f2',
+                      border: `2px solid ${role === r.value ? ACCENT : BORDER}`,
+                    }}
+                  >
+                    <p className="text-sm font-semibold" style={{ color: role === r.value ? ACCENT : TEXT }}>{r.label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: MUTED }}>{r.desc}</p>
+                  </button>
                 ))}
               </div>
             </div>
