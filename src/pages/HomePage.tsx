@@ -107,21 +107,6 @@ export function HomePage() {
               </div>
             </Link>
 
-            <Link to="/personas" className="block">
-              <div className="retro-card hover:border-[#ff00ff] retro-border-magenta transition-all cursor-pointer group">
-                <div className="flex items-center gap-4">
-                  <span className="text-4xl">🎭</span>
-                  <div>
-                    <h3 className="text-2xl retro-text-magenta group-hover:glow-text transition-all">
-                      {'>'} CRÉER UN PERSONNA
-                    </h3>
-                    <p className="retro-text-amber text-lg mt-1">
-                      Concevez une identité fictive pour l'IA
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Link>
 
             <Link to="/scores" className="block">
               <div className="retro-card hover:border-[#ffb000] retro-border-amber transition-all cursor-pointer group">
