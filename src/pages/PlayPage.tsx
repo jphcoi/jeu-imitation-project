@@ -182,14 +182,15 @@ export function PlayPage() {
   };
 
   const startMultiplayerGame = () => {
-    const pA = personaA || getRandomPersona();
-    const pB = personaB || getRandomPersona(pA.id);
-    if (!personaA) setPersonaA(pA);
-    if (!personaB) setPersonaB(pB);
+    const aiPersona = personaA || getRandomPersona();
+    // Both state vars hold the AI persona so sendMessageA/B can both generate AI responses
+    // from the correct slot — aiIsInChat determines which slot is actually AI
+    setPersonaA(aiPersona);
+    setPersonaB(aiPersona);
     const aiChat = Math.random() > 0.5 ? 'A' : 'B';
     const newSession: ChatSession = {
       id: uuidv4(), enqueteurId: currentUser?.id || '',
-      personaIdA: pA.id, personaIdB: pB.id, gameMode: 'multiplayer',
+      personaIdA: aiPersona.id, personaIdB: aiPersona.id, gameMode: 'multiplayer',
       messages: { chatA: [], chatB: [] }, startTime: new Date(), duration: 300,
       status: 'active', aiIsInChat: aiChat as 'A' | 'B',
       humanChat: aiChat === 'A' ? 'B' : 'A',
@@ -199,18 +200,19 @@ export function PlayPage() {
     if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
     setPhase('playing');
     start();
-    const delayA = 800 + Math.random() * 2000;
-    const delayB = 800 + Math.random() * 2000;
-    setTimeout(() => setMessagesA([{ id: uuidv4(), content: "Salut ! Prêt à discuter ?", senderId: 'interlocutor-a', timestamp: new Date(), isFromAI: aiChat === 'A' }]), delayA);
-    setTimeout(() => setMessagesB([{ id: uuidv4(), content: "Hey ! C'est parti ?", senderId: 'interlocutor-b', timestamp: new Date(), isFromAI: aiChat === 'B' }]), delayB);
+    // Only the AI chat sends an opening message; human player will type on their own
+    const aiDelay = 800 + Math.random() * 1500;
+    if (aiChat === 'A') {
+      setTimeout(() => setMessagesA([{ id: uuidv4(), content: "Salut ! Prêt à discuter ?", senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), aiDelay);
+    } else {
+      setTimeout(() => setMessagesB([{ id: uuidv4(), content: "Salut ! Prêt à discuter ?", senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), aiDelay);
+    }
   };
 
   // ── Waiting room ──────────────────────────────────────────────────────────
 
   const startWaitingRoom = (mode: WaitingMode = 'generic') => {
     if (!personaA) return;
-    const pB = personaB || getRandomPersona(personaA.id);
-    setPersonaB(pB);
     const code = mode === 'private' ? generateRoomCode() : 'PUBLIC';
     setRoomCode(code);
     setWaitingMode(mode);
@@ -340,27 +342,42 @@ export function PlayPage() {
           {/* Game mode */}
           <section className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: MUTED }}>Mode de jeu</p>
-            <div className="flex gap-1 p-1 rounded-xl w-fit mb-2" style={{ background: PANEL }}>
+            <div className="grid grid-cols-2 gap-3 mb-2">
               {([
-                { id: 'solo' as GameMode, label: 'Solo — 2 IAs' },
-                { id: 'multiplayer' as GameMode, label: 'Multijoueur' },
+                {
+                  id: 'solo' as GameMode,
+                  label: 'Solo',
+                  sub: '2 IAs — disponible immédiatement',
+                },
+                {
+                  id: 'multiplayer' as GameMode,
+                  label: 'Multijoueur',
+                  sub: '1 IA + 1 vrai élève connecté',
+                },
               ] as const).map(m => (
-                <button key={m.id} onClick={() => setGameMode(m.id)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                  style={{ background: gameMode === m.id ? CARD : 'transparent', color: gameMode === m.id ? TEXT : MUTED, boxShadow: gameMode === m.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}
+                <button key={m.id} onClick={() => { setGameMode(m.id); setPersonaA(null); setPersonaB(null); }}
+                  className="rounded-xl p-4 text-left transition-all"
+                  style={{
+                    background: gameMode === m.id ? `${ACCENT}08` : CARD,
+                    border: `2px solid ${gameMode === m.id ? ACCENT : BORDER}`,
+                  }}
                 >
-                  {m.label}
+                  <p className="text-sm font-semibold" style={{ color: gameMode === m.id ? ACCENT : TEXT }}>{m.label}</p>
+                  <p className="text-xs mt-0.5" style={{ color: MUTED }}>{m.sub}</p>
                 </button>
               ))}
             </div>
-            <p className="text-xs" style={{ color: MUTED }}>
-              {gameMode === 'solo'
-                ? 'Affrontez deux IAs avec des personas différents. Disponible immédiatement.'
-                : 'Jouez avec un autre élève — l\'un enquêteur, l\'autre répondra. Fallback 2 IAs si personne ne rejoint.'}
-            </p>
+            {gameMode === 'multiplayer' && (
+              <div className="rounded-xl px-4 py-3 text-xs leading-relaxed" style={{ background: PANEL, color: MUTED }}>
+                <strong style={{ color: TEXT }}>Comment ça marche :</strong> deux élèves rejoignent la salle d'attente.
+                L'un devient <strong style={{ color: ACCENT }}>enquêteur</strong> et interroge simultanément une IA et l'autre élève.
+                L'autre devient <strong style={{ color: TEAL }}>enquêté(e)</strong> et doit convaincre l'enquêteur qu'il/elle est humain(e).
+                Les rôles sont assignés aléatoirement. Si personne ne rejoint dans 60s, fallback en mode solo (2 IAs).
+              </div>
+            )}
           </section>
 
-          {/* Personas */}
+          {/* Persona selection */}
           {availablePersonas.length === 0 ? (
             <div className="rounded-2xl p-10 text-center mb-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
               <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun persona disponible</p>
@@ -369,12 +386,40 @@ export function PlayPage() {
                 Créer un persona
               </Link>
             </div>
-          ) : (
+          ) : gameMode === 'multiplayer' ? (
+            /* Multiplayer: one persona for the AI only */
             <div className="rounded-2xl overflow-hidden mb-6" style={{ border: `1px solid ${BORDER}` }}>
-              {/* Persona A */}
               <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>
-                  Interlocuteur A
+                  Personnage pour l'IA
+                  {personaA && <span className="ml-2 normal-case font-normal" style={{ color: MUTED }}>— {personaA.name}</span>}
+                </p>
+                <p className="text-xs mt-1" style={{ color: MUTED }}>L'élève connecté jouera sans persona — il/elle sera lui/elle-même.</p>
+              </div>
+              <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-2" style={{ background: BG }}>
+                {availablePersonas.map(persona => (
+                  <button key={persona.id}
+                    onClick={() => setPersonaA(persona)}
+                    className="text-left rounded-xl p-3 transition-all"
+                    style={{ background: personaA?.id === persona.id ? `${ACCENT}08` : CARD, border: `1px solid ${personaA?.id === persona.id ? ACCENT : BORDER}` }}
+                  >
+                    <p className="text-sm font-medium" style={{ color: TEXT }}>{persona.name}, {persona.age} ans</p>
+                    {persona.description && <p className="text-xs mt-0.5 truncate" style={{ color: MUTED }}>{persona.description}</p>}
+                  </button>
+                ))}
+              </div>
+              <div className="px-6 py-4" style={{ background: PANEL, borderTop: `1px solid ${BORDER}` }}>
+                <p className="text-xs" style={{ color: MUTED }}>
+                  L'enquêteur ne saura pas lequel des deux interlocuteurs est l'IA. Le placement (A ou B) est aléatoire.
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* Solo: two personas, both AI */
+            <div className="rounded-2xl overflow-hidden mb-6" style={{ border: `1px solid ${BORDER}` }}>
+              <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>
+                  Interlocuteur A — IA
                   {personaA && <span className="ml-2 normal-case font-normal" style={{ color: MUTED }}>— {personaA.name}</span>}
                 </p>
               </div>
@@ -390,10 +435,9 @@ export function PlayPage() {
                   </button>
                 ))}
               </div>
-              {/* Persona B */}
               <div className="px-6 py-4" style={{ background: CARD, borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: TEAL }}>
-                  Interlocuteur B
+                  Interlocuteur B — IA
                   {personaB
                     ? <span className="ml-2 normal-case font-normal" style={{ color: MUTED }}>— {personaB.name}</span>
                     : <span className="ml-2 normal-case font-normal" style={{ color: MUTED }}>— aléatoire si non choisi</span>}
@@ -635,14 +679,16 @@ export function PlayPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChatPanel
-              label="Interlocuteur A" personaName={personaA?.name}
+              label="Interlocuteur A"
+              personaName={isSolo ? personaA?.name : undefined}
               messages={messagesA} input={inputA}
               onInputChange={setInputA} onSend={sendMessageA}
               typing={typingA} isExpired={isExpired}
               accentColor={ACCENT} currentUserId={currentUser?.id}
             />
             <ChatPanel
-              label="Interlocuteur B" personaName={personaB?.name}
+              label="Interlocuteur B"
+              personaName={isSolo ? personaB?.name : undefined}
               messages={messagesB} input={inputB}
               onInputChange={setInputB} onSend={sendMessageB}
               typing={typingB} isExpired={isExpired}
@@ -663,9 +709,13 @@ export function PlayPage() {
         <div className="w-full max-w-2xl">
           <div className="rounded-2xl p-8" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
             <h2 className="text-lg font-bold mb-1" style={{ color: TEXT }}>
-              {isSolo ? 'Laquelle des deux IAs vous a semblé la moins humaine ?' : "Quel interlocuteur est l'IA ?"}
+              {isSolo ? 'Laquelle des deux IAs vous a semblé la moins humaine ?' : "Lequel est l'IA ?"}
             </h2>
-            {isSolo && <p className="text-xs mb-5" style={{ color: MUTED }}>Les deux interlocuteurs étaient des IAs.</p>}
+            <p className="text-xs mb-5" style={{ color: MUTED }}>
+              {isSolo
+                ? 'Les deux interlocuteurs étaient des IAs avec des personas différents.'
+                : "L'un des deux était une IA jouant un personnage — l'autre était un vrai élève."}
+            </p>
 
             <div className="grid grid-cols-2 gap-4 my-6">
               {([
