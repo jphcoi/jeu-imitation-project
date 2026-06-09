@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { RetroContainer } from '../components/RetroContainer';
+
+const BG = '#0f172a';
+const CARD = '#1e293b';
+const BORDER = 'rgba(255,255,255,0.08)';
+const MUTED = '#6b7280';
 
 export function ScoresPage() {
   const { state } = useGame();
-  const { currentUser, enqueteurScores, personaScores, personas } = state;
+  const { currentUser, enqueteurScores, personaScores } = state;
 
   const sortedEnqueteurs = [...enqueteurScores].sort((a, b) => b.totalPoints - a.totalPoints);
   const sortedPersonas = [...personaScores].sort((a, b) => b.credibilityIndex - a.credibilityIndex);
@@ -13,172 +17,162 @@ export function ScoresPage() {
   const userScore = sortedEnqueteurs.find(s => s.userId === currentUser?.id);
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="scanline"></div>
+    <div
+      className="min-h-screen"
+      style={{ background: BG, color: '#f9fafb', fontFamily: 'Inter, system-ui, sans-serif' }}
+    >
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <Link
+            to="/"
+            className="text-sm transition-colors"
+            style={{ color: MUTED }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#f9fafb')}
+            onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+          >
+            ← Retour
+          </Link>
+          <span style={{ color: MUTED }}>·</span>
+          <h1 className="text-xl font-bold text-white">Classements</h1>
+        </div>
 
-      <div className="max-w-6xl mx-auto">
-        <Link to="/" className="retro-text-cyan hover:glow-text text-lg">
-          {'<'} Retour au menu
-        </Link>
-
-        <h1 className="text-2xl mt-4 mb-8 glow-text" style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '16px' }}>
-          🏆 CLASSEMENTS
-        </h1>
-
-        {/* Stats personnelles */}
+        {/* Personal stats */}
         {userScore && (
-          <RetroContainer title="📊 VOS STATISTIQUES" className="mb-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <p className="text-5xl font-bold retro-text-amber glow-text">
-                  #{userRank || '-'}
-                </p>
-                <p className="text-lg mt-2">Classement</p>
+          <div
+            className="grid grid-cols-4 gap-px mb-8 rounded-2xl overflow-hidden"
+            style={{ background: BORDER }}
+          >
+            {[
+              { label: 'Classement', value: `#${userRank || '-'}`, color: '#f59e0b' },
+              { label: 'Points totaux', value: String(userScore.totalPoints), color: '#f9fafb' },
+              { label: 'Détections', value: `${userScore.correctDetections}/${userScore.totalSessions}`, color: '#06b6d4' },
+              { label: 'Fiabilité (Rᵢ)', value: `${userScore.reliabilityIndex.toFixed(0)}%`, color: '#ec4899' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="px-6 py-5" style={{ background: CARD }}>
+                <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
+                <p className="text-xs mt-1" style={{ color: MUTED }}>{label}</p>
               </div>
-              <div className="text-center">
-                <p className="text-5xl font-bold glow-text">
-                  {userScore.totalPoints}
-                </p>
-                <p className="text-lg mt-2">Points totaux</p>
-              </div>
-              <div className="text-center">
-                <p className="text-5xl font-bold retro-text-cyan glow-text">
-                  {userScore.correctDetections}/{userScore.totalSessions}
-                </p>
-                <p className="text-lg mt-2">Détections</p>
-              </div>
-              <div className="text-center">
-                <p className="text-5xl font-bold retro-text-magenta glow-text">
-                  {userScore.reliabilityIndex.toFixed(0)}%
-                </p>
-                <p className="text-lg mt-2">Fiabilité (Rᵢ)</p>
-              </div>
-            </div>
-          </RetroContainer>
+            ))}
+          </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Classement Enquêteurs */}
-          <RetroContainer title="🔍 TOP ENQUÊTEURS">
-            {sortedEnqueteurs.length === 0 ? (
-              <p className="text-center py-8 retro-text-amber">
-                Aucune session terminée
+        {/* Rankings */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Enquêteurs */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+            <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#6366f1' }}>
+                Top Enquêteurs
               </p>
-            ) : (
-              <div className="space-y-3">
-                {sortedEnqueteurs.slice(0, 10).map((score, index) => (
+            </div>
+            <div style={{ background: BG }}>
+              {sortedEnqueteurs.length === 0 ? (
+                <p className="px-6 py-8 text-sm" style={{ color: MUTED }}>Aucune session terminée</p>
+              ) : (
+                sortedEnqueteurs.slice(0, 10).map((score, index) => (
                   <div
                     key={score.userId}
-                    className={`flex items-center justify-between p-3 ${
-                      score.userId === currentUser?.id
-                        ? 'bg-[rgba(0,255,65,0.1)] border border-[#00ff41]'
-                        : 'retro-card'
-                    }`}
+                    className="flex items-center justify-between px-6 py-4"
+                    style={{
+                      background: score.userId === currentUser?.id ? 'rgba(99,102,241,0.08)' : 'transparent',
+                      borderBottom: `1px solid ${BORDER}`,
+                      borderLeft: score.userId === currentUser?.id ? '3px solid #6366f1' : '3px solid transparent',
+                    }}
                   >
                     <div className="flex items-center gap-4">
-                      <span className={`text-2xl font-bold ${
-                        index === 0 ? 'retro-text-amber' :
-                        index === 1 ? 'text-gray-400' :
-                        index === 2 ? 'text-orange-600' : ''
-                      }`}>
+                      <span
+                        className="text-lg font-bold w-8 tabular-nums"
+                        style={{
+                          color: index === 0 ? '#f59e0b' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : MUTED,
+                        }}
+                      >
                         #{index + 1}
                       </span>
                       <div>
-                        <p className="text-xl">
+                        <p className="text-sm font-medium text-white">
                           {score.pseudo}
                           {score.userId === currentUser?.id && (
-                            <span className="retro-text-cyan ml-2">(vous)</span>
+                            <span className="ml-2 text-xs" style={{ color: '#6366f1' }}>vous</span>
                           )}
                         </p>
-                        <p className="text-sm retro-text-amber">
-                          {score.correctDetections}/{score.totalSessions} détections
-                          • Rᵢ: {score.reliabilityIndex.toFixed(0)}%
+                        <p className="text-xs mt-0.5" style={{ color: MUTED }}>
+                          {score.correctDetections}/{score.totalSessions} détections · Rᵢ {score.reliabilityIndex.toFixed(0)}%
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold glow-text">
-                        {score.totalPoints}
-                      </p>
-                      <p className="text-sm">pts</p>
+                    <span className="text-sm font-bold text-white tabular-nums">{score.totalPoints} pts</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Personas */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+            <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#ec4899' }}>
+                Meilleurs Personnas
+              </p>
+            </div>
+            <div style={{ background: BG }}>
+              {sortedPersonas.length === 0 ? (
+                <p className="px-6 py-8 text-sm" style={{ color: MUTED }}>Aucun personna évalué</p>
+              ) : (
+                sortedPersonas.slice(0, 10).map((score, index) => (
+                  <div
+                    key={score.personaId}
+                    className="px-6 py-4"
+                    style={{ borderBottom: `1px solid ${BORDER}` }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-4">
+                        <span
+                          className="text-lg font-bold w-8 tabular-nums"
+                          style={{
+                            color: index === 0 ? '#ec4899' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : MUTED,
+                          }}
+                        >
+                          #{index + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-medium" style={{ color: '#ec4899' }}>{score.personaName}</p>
+                          <p className="text-xs mt-0.5" style={{ color: MUTED }}>
+                            {score.totalSessions} sessions · {score.timesDetectedAsAI} détections IA
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold tabular-nums" style={{ color: '#06b6d4' }}>
+                        {score.credibilityIndex.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="ml-12 h-1.5 rounded-full overflow-hidden" style={{ background: CARD }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${score.credibilityIndex}%`, background: '#06b6d4' }}
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </RetroContainer>
-
-          {/* Classement Personnas */}
-          <RetroContainer title="🎭 MEILLEURS PERSONNAS (Crédibilité)">
-            {sortedPersonas.length === 0 ? (
-              <p className="text-center py-8 retro-text-amber">
-                Aucun personna évalué
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {sortedPersonas.slice(0, 10).map((score, index) => {
-                  personas.find(p => p.id === score.personaId);
-                  return (
-                    <div
-                      key={score.personaId}
-                      className="retro-card"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <span className={`text-2xl font-bold ${
-                            index === 0 ? 'retro-text-magenta' :
-                            index === 1 ? 'text-gray-400' :
-                            index === 2 ? 'text-orange-600' : ''
-                          }`}>
-                            #{index + 1}
-                          </span>
-                          <div>
-                            <p className="text-xl retro-text-magenta">
-                              {score.personaName}
-                            </p>
-                            <p className="text-sm retro-text-amber">
-                              {score.totalSessions} sessions
-                              • {score.timesDetectedAsAI} détections
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold retro-text-cyan glow-text">
-                            {score.credibilityIndex.toFixed(0)}%
-                          </p>
-                          <p className="text-sm retro-text-cyan">IC</p>
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <div className="retro-progress">
-                          <div
-                            className="retro-progress-bar"
-                            style={{
-                              width: `${score.credibilityIndex}%`,
-                              background: 'var(--retro-cyan)'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </RetroContainer>
+                ))
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Légende */}
-        <div className="mt-8 retro-card">
-          <h3 className="text-xl mb-4">📖 LÉGENDE</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg">
-            <div>
-              <p><span className="retro-text-amber">Points</span> : +2 par détection correcte, +1 bonus pour justification argumentée</p>
-              <p className="mt-2"><span className="retro-text-cyan">Rᵢ (Fiabilité)</span> : % de détections correctes</p>
+        {/* Legend */}
+        <div
+          className="rounded-2xl p-6"
+          style={{ background: CARD, border: `1px solid ${BORDER}` }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: MUTED }}>Légende</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm" style={{ color: '#9ca3af' }}>
+            <div className="space-y-1.5">
+              <p><span style={{ color: '#f59e0b' }}>Points</span> — +2 par détection correcte, +1 bonus pour justification argumentée</p>
+              <p><span style={{ color: '#06b6d4' }}>Rᵢ (Fiabilité)</span> — % de détections correctes</p>
             </div>
-            <div>
-              <p><span className="retro-text-magenta">IC (Crédibilité)</span> : % de fois où le personna n'a PAS été détecté comme IA</p>
-              <p className="mt-2">Plus l'IC est élevé, plus le personna est crédible !</p>
+            <div className="space-y-1.5">
+              <p><span style={{ color: '#ec4899' }}>IC (Crédibilité)</span> — % de fois où le personna n'a PAS été détecté comme IA</p>
+              <p>Plus l'IC est élevé, plus le personna est crédible.</p>
             </div>
           </div>
         </div>

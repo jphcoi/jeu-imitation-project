@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
-const BG = '#09090f';
-const CARD = '#111118';
-const BORDER = 'rgba(255,255,255,0.07)';
+const BG = '#0f172a';
+const CARD = '#1e293b';
+const BORDER = 'rgba(255,255,255,0.08)';
 const MUTED = '#6b7280';
 const SUBTLE = '#374151';
 
@@ -11,6 +11,8 @@ export function HomePage() {
   const { state, logout } = useGame();
   const { currentUser, personas, sessions, enqueteurScores } = state;
 
+  const sortedEnqueteurs = [...enqueteurScores].sort((a, b) => b.totalPoints - a.totalPoints);
+  const userRank = sortedEnqueteurs.findIndex(s => s.userId === currentUser?.id) + 1;
   const userScore = enqueteurScores.find(s => s.userId === currentUser?.id);
   const studentNeedsPersona =
     currentUser?.role === 'student' &&
@@ -28,7 +30,7 @@ export function HomePage() {
         style={{ borderBottom: `1px solid ${BORDER}` }}
       >
         <div className="flex items-baseline gap-4">
-          <span className="text-lg font-semibold tracking-tight text-white">
+          <span className="text-2xl font-bold tracking-tight text-white">
             Jeu de l'Imitation
           </span>
           <span style={{ color: MUTED }} className="text-sm">
@@ -93,7 +95,11 @@ export function HomePage() {
 
           {/* Bottom links */}
           <div className="grid grid-cols-2 gap-px shrink-0" style={{ background: BORDER }}>
-            <BottomLink to="/scores" label="Classements" sub="Scores et statistiques" />
+            <BottomLink
+              to="/scores"
+              label="Classements"
+              sub={userRank > 0 ? `Votre rang — #${userRank}` : 'Scores et statistiques'}
+            />
             {currentUser?.role === 'teacher' && (
               <BottomLink to="/dashboard" label="Tableau de bord" sub="Gérez les sessions" />
             )}
@@ -201,14 +207,14 @@ function BottomLink({ to, label, sub }: { to: string; label: string; sub: string
   return (
     <Link
       to={to}
-      className="flex items-center justify-between px-8 py-5 group transition-colors"
+      className="flex items-center justify-between px-8 py-8 group transition-colors"
       style={{ background: CARD }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a24')}
+      onMouseEnter={e => (e.currentTarget.style.background = '#243044')}
       onMouseLeave={e => (e.currentTarget.style.background = CARD)}
     >
       <div>
-        <p className="text-sm font-semibold text-white">{label}</p>
-        <p className="text-xs mt-0.5" style={{ color: MUTED }}>{sub}</p>
+        <p className="text-base font-bold text-white">{label}</p>
+        <p className="text-xs mt-1" style={{ color: MUTED }}>{sub}</p>
       </div>
       <svg
         className="w-4 h-4 transition-transform group-hover:translate-x-0.5"

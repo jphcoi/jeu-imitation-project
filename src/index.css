@@ -5,22 +5,22 @@
 @tailwind utilities;
 
 :root {
-  --retro-bg: #f8fafc;
+  --retro-bg: #0f172a;
   --retro-green: #6366f1;
   --retro-amber: #f59e0b;
   --retro-cyan: #06b6d4;
   --retro-magenta: #ec4899;
-  --retro-border: #e2e8f0;
-  --retro-panel: #ffffff;
-  --retro-panel-light: #f1f5f9;
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
+  --retro-border: rgba(255, 255, 255, 0.08);
+  --retro-panel: #1e293b;
+  --retro-panel-light: #243044;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
 }
 
 @layer base {
   body {
     @apply min-h-screen;
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    background: #0f172a;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     color: var(--text-primary);
   }
@@ -51,8 +51,8 @@
     background: var(--retro-panel);
     border: 1px solid var(--retro-border);
     box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      0 4px 6px -1px rgba(0, 0, 0, 0.4),
+      0 2px 4px -2px rgba(0, 0, 0, 0.3);
   }
 
   .retro-title-bar {
@@ -217,7 +217,7 @@
 
   .chat-message-received {
     @apply mr-auto;
-    background: white;
+    background: var(--retro-panel-light);
     border: 1px solid var(--retro-border);
     color: var(--text-primary);
     border-radius: 20px 20px 20px 4px;
