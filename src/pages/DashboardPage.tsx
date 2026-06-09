@@ -10,10 +10,11 @@ const TEXT = '#1c1917';
 const ACCENT = '#6366f1';
 
 export function DashboardPage() {
-  const { state, logout } = useGame();
+  const { state, dispatch, logout } = useGame();
   const { currentUser, sessions, votes, personas, enqueteurScores, personaScores } = state;
 
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'personas' | 'export'>('overview');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const completedSessions = sessions.filter(s => s.status === 'completed');
   const myScore = enqueteurScores.find(s => s.userId === currentUser?.id);
@@ -277,14 +278,44 @@ export function DashboardPage() {
                           <h3 className="text-sm font-bold" style={{ color: '#db2777' }}>{persona.name}, {persona.age} ans</h3>
                           <p className="text-xs mt-0.5" style={{ color: MUTED }}>{persona.classId || '—'}</p>
                         </div>
-                        {score ? (
-                          <div className="text-right">
-                            <p className="text-lg font-bold tabular-nums" style={{ color: '#0891b2' }}>{score.credibilityIndex.toFixed(0)}%</p>
-                            <p className="text-xs" style={{ color: MUTED }}>crédibilité · {score.totalSessions} session{score.totalSessions !== 1 ? 's' : ''}</p>
-                          </div>
-                        ) : (
-                          <span className="text-xs px-2 py-1 rounded-lg" style={{ background: PANEL, color: MUTED }}>Pas encore joué</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {score ? (
+                            <div className="text-right">
+                              <p className="text-lg font-bold tabular-nums" style={{ color: '#0891b2' }}>{score.credibilityIndex.toFixed(0)}%</p>
+                              <p className="text-xs" style={{ color: MUTED }}>crédibilité · {score.totalSessions} session{score.totalSessions !== 1 ? 's' : ''}</p>
+                            </div>
+                          ) : (
+                            <span className="text-xs px-2 py-1 rounded-lg" style={{ background: PANEL, color: MUTED }}>Pas encore joué</span>
+                          )}
+                          {deletingId === persona.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => { dispatch({ type: 'DELETE_PERSONA', payload: persona.id }); setDeletingId(null); }}
+                                className="text-xs px-2.5 py-1 rounded-lg font-medium text-white"
+                                style={{ background: '#dc2626' }}
+                              >
+                                Supprimer
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(null)}
+                                className="text-xs px-2.5 py-1 rounded-lg"
+                                style={{ background: PANEL, color: MUTED }}
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setDeletingId(persona.id)}
+                              className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                              style={{ background: PANEL, color: MUTED }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                            >
+                              Supprimer
+                            </button>
+                          )}
+                        </div>
                       </div>
                       {persona.description && (
                         <p className="text-xs mb-2 leading-relaxed" style={{ color: MUTED }}>{persona.description}</p>
