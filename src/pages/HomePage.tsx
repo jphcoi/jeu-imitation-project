@@ -1,170 +1,222 @@
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { RetroContainer } from '../components/RetroContainer';
+
+const BG = '#09090f';
+const CARD = '#111118';
+const BORDER = 'rgba(255,255,255,0.07)';
+const MUTED = '#6b7280';
+const SUBTLE = '#374151';
 
 export function HomePage() {
   const { state, logout } = useGame();
   const { currentUser, personas, sessions, enqueteurScores } = state;
 
   const userScore = enqueteurScores.find(s => s.userId === currentUser?.id);
-  const studentNeedsPersona = currentUser?.role === 'student' &&
+  const studentNeedsPersona =
+    currentUser?.role === 'student' &&
     !personas.some(p => p.createdBy === currentUser?.id);
   const completedSessions = sessions.filter(s => s.status === 'completed').length;
 
   return (
-    <div className="min-h-screen flex flex-col p-4 md:p-6">
-      <div className="scanline"></div>
+    <div
+      className="h-screen flex flex-col overflow-hidden"
+      style={{ background: BG, color: '#f9fafb', fontFamily: 'Inter, system-ui, sans-serif' }}
+    >
+      {/* ── Header ── */}
+      <header
+        className="flex justify-between items-center px-8 py-5 shrink-0"
+        style={{ borderBottom: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-baseline gap-4">
+          <span className="text-lg font-semibold tracking-tight text-white">
+            Jeu de l'Imitation
+          </span>
+          <span style={{ color: MUTED }} className="text-sm">
+            {currentUser?.pseudo}
+            {currentUser?.classId && (
+              <>
+                <span className="mx-2" style={{ color: SUBTLE }}>·</span>
+                {currentUser.classId}
+              </>
+            )}
+          </span>
+        </div>
+        <button
+          onClick={logout}
+          className="text-sm transition-colors px-3 py-1.5 rounded-lg"
+          style={{ color: MUTED, border: `1px solid ${BORDER}` }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#f9fafb')}
+          onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+        >
+          Se déconnecter
+        </button>
+      </header>
 
-      <div className="max-w-4xl mx-auto w-full flex flex-col gap-3 flex-1 min-h-0">
+      {/* ── Main grid ── */}
+      <main className="flex-1 min-h-0 grid grid-cols-3 gap-px" style={{ background: BORDER }}>
 
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="glow-text" style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '14px' }}>
-              JEU DE L'IMITATION
-            </h1>
-            <p className="retro-text-amber mt-1 text-sm">
-              {currentUser?.pseudo}
-              <span className="retro-text-cyan ml-3">
-                [{currentUser?.role === 'teacher' ? 'Enseignant' : 'Élève'}]
-              </span>
-              {currentUser?.classId && (
-                <span className="retro-text-cyan ml-3">— {currentUser.classId}</span>
-              )}
-            </p>
+        {/* Left 2/3 — actions */}
+        <div className="col-span-2 flex flex-col gap-px" style={{ background: BG }}>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-px shrink-0" style={{ background: BORDER }}>
+            <Stat label="Sessions" value={completedSessions} />
+            <Stat label="Personnages" value={personas.length} />
+            <Stat
+              label="Mes points"
+              value={userScore?.totalPoints ?? 0}
+              sub={`${userScore?.reliabilityIndex.toFixed(0) ?? 0}% fiabilité`}
+            />
           </div>
-          <button onClick={logout} className="retro-btn retro-btn-amber text-xs py-1 px-3">
-            Déconnexion
-          </button>
+
+          {/* Step cards */}
+          <div className="flex-1 min-h-0 grid grid-rows-2 gap-px" style={{ background: BORDER }}>
+            <StepCard
+              step="01"
+              title="Créer un personnage"
+              description="Construis un personnage fictif de lycéen — nom, traits, centres d'intérêt, façon de parler. L'IA l'incarnera pendant le jeu."
+              to="/personas"
+              accent="#ec4899"
+              cta={studentNeedsPersona ? 'Commencer' : 'Voir les personnages'}
+              urgent={studentNeedsPersona}
+            />
+            <StepCard
+              step="02"
+              title="Jouer"
+              description="Interrogez deux interlocuteurs pendant 5 minutes. L'un est humain, l'autre est une IA. Identifiez-la et justifiez votre réponse."
+              to="/play"
+              accent="#6366f1"
+              cta="Lancer une partie"
+              urgent={false}
+            />
+          </div>
+
+          {/* Bottom links */}
+          <div className="grid grid-cols-2 gap-px shrink-0" style={{ background: BORDER }}>
+            <BottomLink to="/scores" label="Classements" sub="Scores et statistiques" />
+            {currentUser?.role === 'teacher' && (
+              <BottomLink to="/dashboard" label="Tableau de bord" sub="Gérez les sessions" />
+            )}
+          </div>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 gap-3">
-          <RetroContainer title="SESSIONS">
-            <div className="text-center py-1">
-              <p className="text-3xl font-bold retro-text-cyan glow-text">{completedSessions}</p>
-              <p className="text-sm mt-1">Sessions terminées</p>
-            </div>
-          </RetroContainer>
-
-          <RetroContainer title="PERSONNAS">
-            <div className="text-center py-1">
-              <p className="text-3xl font-bold retro-text-magenta glow-text">{personas.length}</p>
-              <p className="text-sm mt-1">Personnas créés</p>
-            </div>
-          </RetroContainer>
-        </div>
-
-        {/* Étape 1 */}
-        <Link to="/personas" className="block">
-          <div className={`retro-card cursor-pointer group transition-all py-3 ${studentNeedsPersona ? 'retro-border-magenta' : 'hover:border-[#ff00ff]'}`}>
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎭</span>
-              <div>
-                <p className="retro-text-magenta text-xs mb-0.5">ÉTAPE 1</p>
-                <h3 className="text-lg retro-text-magenta group-hover:glow-text transition-all leading-tight">
-                  {'>'} CRÉER UN PERSONNAGE
-                </h3>
-                <p className="retro-text-amber text-sm mt-0.5">
-                  {studentNeedsPersona
-                    ? "Tu n'as pas encore créé de personnage — commence par ici !"
-                    : "Crée ou consulte les personnages de ta classe"}
-                </p>
+        {/* Right 1/3 — rules */}
+        <aside
+          className="flex flex-col p-8 overflow-auto"
+          style={{ background: CARD }}
+        >
+          <p className="text-xs font-semibold uppercase tracking-widest mb-6" style={{ color: MUTED }}>
+            Règles du jeu
+          </p>
+          <div className="flex-1 space-y-6">
+            {[
+              "Vous dialoguez en simultané avec deux interlocuteurs pendant 5 minutes.",
+              "L'un est un humain, l'autre est une IA qui incarne un personnage fictif créé par vos camarades d'une autre classe.",
+              "Votre mission : déterminer lequel est l'IA avant la fin du temps imparti.",
+              "+2 points pour une bonne détection. +1 point bonus si votre justification dépasse 50 caractères.",
+            ].map((text, i) => (
+              <div key={i} className="flex gap-4">
+                <span
+                  className="shrink-0 text-xs font-bold mt-0.5"
+                  style={{ color: '#6366f1' }}
+                >
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <p className="text-sm leading-relaxed" style={{ color: '#9ca3af' }}>{text}</p>
               </div>
-            </div>
+            ))}
           </div>
-        </Link>
-
-        {/* Étape 2 */}
-        <Link to="/play" className="block">
-          <div className="retro-card hover:border-[#00ff41] transition-all cursor-pointer group py-3">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🔍</span>
-              <div>
-                <p className="retro-text-cyan text-xs mb-0.5">ÉTAPE 2</p>
-                <h3 className="text-lg group-hover:glow-text transition-all leading-tight">
-                  {'>'} JOUER — ENQUÊTEUR
-                </h3>
-                <p className="retro-text-amber text-sm mt-0.5">
-                  Interrogez deux interlocuteurs et devinez qui est l'IA
-                </p>
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        {/* Points + Classement */}
-        <div className="grid grid-cols-2 gap-3">
-          <RetroContainer title="MES POINTS">
-            <div className="text-center py-1">
-              <p className="text-3xl font-bold retro-text-amber glow-text">{userScore?.totalPoints || 0}</p>
-              <p className="text-sm mt-1">Points totaux</p>
-              <p className="text-xs retro-text-cyan mt-0.5">
-                Fiabilité : {userScore?.reliabilityIndex.toFixed(1) || 0}%
-              </p>
-            </div>
-          </RetroContainer>
-
-          <Link to="/scores" className="block">
-            <div className="retro-card hover:border-[#ffb000] retro-border-amber transition-all cursor-pointer group h-full py-3">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">🏆</span>
-                <div>
-                  <h3 className="text-lg retro-text-amber group-hover:glow-text transition-all leading-tight">
-                    {'>'} CLASSEMENTS
-                  </h3>
-                  <p className="retro-text-cyan text-sm mt-0.5">
-                    Scores et statistiques
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Teacher dashboard */}
-        {currentUser?.role === 'teacher' && (
-          <Link to="/dashboard" className="block">
-            <div className="retro-card hover:border-[#00ffff] retro-border-cyan transition-all cursor-pointer group py-3">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">📊</span>
-                <div>
-                  <h3 className="text-lg retro-text-cyan group-hover:glow-text transition-all leading-tight">
-                    {'>'} TABLEAU DE BORD
-                  </h3>
-                  <p className="retro-text-amber text-sm mt-0.5">Gérez les sessions et analysez les données</p>
-                </div>
-              </div>
-            </div>
-          </Link>
-        )}
-
-        {/* Footer */}
-        <p className="text-center text-xs retro-text-cyan opacity-50 mt-auto pb-1">
-          Test de Turing Éducatif — Projet Pédagogique
-        </p>
-
-      </div>
-
-      {/* Rules — visible on scroll */}
-      <div className="max-w-4xl mx-auto w-full mt-8 px-4 md:px-6 pb-8">
-        <RetroContainer title="RÈGLES DU JEU">
-          <div className="space-y-3 text-base">
-            <p>
-              <span className="retro-text-cyan">1.</span> En tant qu'<span className="retro-text-amber">ENQUÊTEUR</span>, vous dialoguez avec deux interlocuteurs pendant 5 minutes.
-            </p>
-            <p>
-              <span className="retro-text-cyan">2.</span> L'un est un <span className="glow-text">HUMAIN</span>, l'autre une <span className="retro-text-magenta">IA</span> jouant un personnage fictif.
-            </p>
-            <p>
-              <span className="retro-text-cyan">3.</span> Votre mission : <span className="retro-text-amber">identifier qui est qui</span> !
-            </p>
-            <p>
-              <span className="retro-text-cyan">4.</span> <span className="glow-text">+2 points</span> pour une détection correcte, <span className="retro-text-amber">+1 bonus</span> si votre justification est argumentée.
-            </p>
-          </div>
-        </RetroContainer>
-      </div>
+          <p className="text-xs mt-8 pt-4" style={{ color: SUBTLE, borderTop: `1px solid ${BORDER}` }}>
+            Test de Turing — Projet pédagogique
+          </p>
+        </aside>
+      </main>
     </div>
+  );
+}
+
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function Stat({ label, value, sub }: { label: string; value: number; sub?: string }) {
+  return (
+    <div className="px-8 py-5" style={{ background: CARD }}>
+      <p className="text-3xl font-bold text-white tabular-nums">{value}</p>
+      <p className="text-sm mt-1" style={{ color: MUTED }}>{label}</p>
+      {sub && <p className="text-xs mt-0.5" style={{ color: SUBTLE }}>{sub}</p>}
+    </div>
+  );
+}
+
+function StepCard({ step, title, description, to, accent, cta, urgent }: {
+  step: string;
+  title: string;
+  description: string;
+  to: string;
+  accent: string;
+  cta: string;
+  urgent: boolean;
+}) {
+  return (
+    <Link to={to} className="block h-full group" style={{ background: BG }}>
+      <div
+        className="h-full flex flex-col justify-between p-8 transition-all"
+        style={{ borderLeft: `3px solid ${urgent ? accent : 'transparent'}` }}
+        onMouseEnter={e => (e.currentTarget.style.borderLeftColor = accent)}
+        onMouseLeave={e => (e.currentTarget.style.borderLeftColor = urgent ? accent : 'transparent')}
+      >
+        <div className="flex items-start justify-between gap-8">
+          <div className="flex-1">
+            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: accent }}>
+              Étape {step}
+            </p>
+            <h2 className="text-2xl font-bold text-white leading-tight">{title}</h2>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: '#9ca3af', maxWidth: '480px' }}>
+              {description}
+            </p>
+          </div>
+          <span
+            className="text-8xl font-black leading-none select-none shrink-0 tabular-nums transition-opacity"
+            style={{ color: accent, opacity: 0.08 }}
+          >
+            {step}
+          </span>
+        </div>
+        <div className="mt-6">
+          <span
+            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all"
+            style={{ background: `${accent}18`, color: accent }}
+          >
+            {cta}
+            <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function BottomLink({ to, label, sub }: { to: string; label: string; sub: string }) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center justify-between px-8 py-5 group transition-colors"
+      style={{ background: CARD }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#1a1a24')}
+      onMouseLeave={e => (e.currentTarget.style.background = CARD)}
+    >
+      <div>
+        <p className="text-sm font-semibold text-white">{label}</p>
+        <p className="text-xs mt-0.5" style={{ color: MUTED }}>{sub}</p>
+      </div>
+      <svg
+        className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+        style={{ color: MUTED }}
+        fill="none" stroke="currentColor" viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </Link>
   );
 }
