@@ -179,8 +179,8 @@ export function PlayPage() {
     dispatch({ type: 'ADD_SESSION', payload: newSession });
     setPhase('playing');
     start();
-    setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), 500);
-    setTimeout(() => setMessagesB([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), 800);
+    setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), 2000 + Math.random() * 4000);
+    setTimeout(() => setMessagesB([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), 2000 + Math.random() * 4000);
   };
 
   const startMultiplayerGame = () => {
@@ -203,7 +203,7 @@ export function PlayPage() {
     setPhase('playing');
     start();
     // Only the AI chat sends an opening message; human player will type on their own
-    const aiDelay = 800 + Math.random() * 1500;
+    const aiDelay = 2000 + Math.random() * 4000;
     if (aiChat === 'A') {
       setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), aiDelay);
     } else {
