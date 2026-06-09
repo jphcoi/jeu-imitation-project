@@ -67,11 +67,8 @@ export function PersonaPage() {
   const { currentUser, personas } = state;
 
   const [tab, setTab] = useState<Tab>('chatbot');
-  // Show all personas from the same school; class filtering will be added when multiple schools are active
-  const visiblePersonas = currentUser?.schoolId
-    ? personas.filter(p => !p.classId || p.classId.includes(currentUser.schoolId!))
-    : personas;
-  const allPersonas = visiblePersonas.length > 0 ? visiblePersonas : personas;
+  // All personas visible for now; when multiple schools go live, filter by persona.schoolId === currentUser.schoolId
+  const allPersonas = personas;
 
   const deletePersona = (id: string) => {
     if (confirm('Supprimer ce personnage ?')) {

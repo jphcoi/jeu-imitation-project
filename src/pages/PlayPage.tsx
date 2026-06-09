@@ -63,10 +63,8 @@ export function PlayPage() {
 
   const { timeLeft, isExpired, start, formatTime } = useTimer(300);
 
-  // Show all personas from same school; when multiple schools exist, filter by schoolId
-  const availablePersonas = currentUser?.schoolId
-    ? personas.filter(p => !p.classId || p.classId.includes(currentUser.schoolId!))
-    : personas;
+  // All personas visible for now; when multiple schools go live, filter by persona.schoolId === currentUser.schoolId
+  const availablePersonas = personas;
 
   const multiplayer = useMultiplayer(currentUser?.id || '');
 
