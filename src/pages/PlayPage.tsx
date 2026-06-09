@@ -22,10 +22,10 @@ const TEAL = '#0891b2';
 
 function computeTypingDelay(responseText: string): number {
   const charCount = responseText.length;
-  const thinkTime = 1500 + Math.random() * 2500;
-  const charsPerSec = 3 + Math.random() * 3;
+  const thinkTime = 200 + Math.random() * 1800;
+  const charsPerSec = 20 + Math.random() * 20;
   const typingTime = (charCount / charsPerSec) * 1000;
-  return Math.min(Math.max(thinkTime + typingTime, 2000), 12000);
+  return Math.min(thinkTime + typingTime, 3500);
 }
 
 export function PlayPage() {
