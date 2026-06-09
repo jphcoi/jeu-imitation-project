@@ -25,9 +25,9 @@ function randomGreeting() { return OPENING_GREETINGS[Math.floor(Math.random() * 
 
 function computeTypingDelay(responseText: string): number {
   const charCount = responseText.length;
-  const base = 250 + Math.random() * 350;   // 250–600ms base (read + react)
-  const msPerChar = 30 + Math.random() * 25; // ~30–55ms per character typed
-  return Math.min(base + charCount * msPerChar, 35000);
+  const base = 250 + Math.random() * 350;
+  const msPerChar = 150 + Math.random() * 100; // ~150–250ms per character — scales to 50s cap for long texts
+  return Math.min(base + charCount * msPerChar, 50000);
 }
 
 export function PlayPage() {
