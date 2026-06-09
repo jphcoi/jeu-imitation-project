@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
 const BG = '#faf7f2';
