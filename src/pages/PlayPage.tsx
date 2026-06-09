@@ -212,7 +212,6 @@ export function PlayPage() {
   // ── Waiting room ──────────────────────────────────────────────────────────
 
   const startWaitingRoom = (mode: WaitingMode = 'generic') => {
-    if (!personaA) return;
     const code = mode === 'private' ? generateRoomCode() : 'PUBLIC';
     setRoomCode(code);
     setWaitingMode(mode);
@@ -387,32 +386,13 @@ export function PlayPage() {
               </Link>
             </div>
           ) : gameMode === 'multiplayer' ? (
-            /* Multiplayer: one persona for the AI only */
-            <div className="rounded-2xl overflow-hidden mb-6" style={{ border: `1px solid ${BORDER}` }}>
-              <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
-                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: ACCENT }}>
-                  Personnage pour l'IA
-                  {personaA && <span className="ml-2 normal-case font-normal" style={{ color: MUTED }}>— {personaA.name}</span>}
-                </p>
-                <p className="text-xs mt-1" style={{ color: MUTED }}>L'élève connecté jouera sans persona — il/elle sera lui/elle-même.</p>
-              </div>
-              <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-2" style={{ background: BG }}>
-                {availablePersonas.map(persona => (
-                  <button key={persona.id}
-                    onClick={() => setPersonaA(persona)}
-                    className="text-left rounded-xl p-3 transition-all"
-                    style={{ background: personaA?.id === persona.id ? `${ACCENT}08` : CARD, border: `1px solid ${personaA?.id === persona.id ? ACCENT : BORDER}` }}
-                  >
-                    <p className="text-sm font-medium" style={{ color: TEXT }}>{persona.name}, {persona.age} ans</p>
-                    {persona.description && <p className="text-xs mt-0.5 truncate" style={{ color: MUTED }}>{persona.description}</p>}
-                  </button>
-                ))}
-              </div>
-              <div className="px-6 py-4" style={{ background: PANEL, borderTop: `1px solid ${BORDER}` }}>
-                <p className="text-xs" style={{ color: MUTED }}>
-                  L'enquêteur ne saura pas lequel des deux interlocuteurs est l'IA. Le placement (A ou B) est aléatoire.
-                </p>
-              </div>
+            /* Multiplayer: AI persona chosen randomly, nothing to select */
+            <div className="rounded-2xl p-5 mb-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+              <p className="text-sm font-semibold mb-1" style={{ color: TEXT }}>Persona IA — choisi aléatoirement</p>
+              <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
+                Un personnage sera tiré au sort parmi tous les personas disponibles. Tu ne sauras pas lequel — c'est fait exprès.
+                L'enquêteur ne saura pas non plus lequel des deux interlocuteurs est l'IA.
+              </p>
             </div>
           ) : (
             /* Solo: two personas, both AI */
@@ -498,7 +478,7 @@ export function PlayPage() {
             </div>
           )}
 
-          {personaA && (
+          {(gameMode === 'multiplayer' || personaA) && (
             <button onClick={gameMode === 'solo' ? startSoloGame : () => startWaitingRoom(waitingMode)}
               className="w-full py-3 rounded-xl text-sm font-semibold text-white"
               style={{ background: TEXT }}
