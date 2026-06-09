@@ -47,7 +47,7 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            <HomePage />
+            {state.currentUser?.role === 'teacher' ? <Navigate to="/dashboard" replace /> : <HomePage />}
           </ProtectedRoute>
         }
       />

@@ -11,7 +11,7 @@ const TEXT = '#1c1917';
 const ACCENT = '#6366f1';
 
 export function DashboardPage() {
-  const { state } = useGame();
+  const { state, logout } = useGame();
   const { sessions, votes, personas, enqueteurScores, personaScores } = state;
 
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'personas' | 'export'>('overview');
@@ -87,18 +87,21 @@ export function DashboardPage() {
       style={{ background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <Link
-            to="/"
-            className="text-sm transition-colors"
-            style={{ color: MUTED }}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <span className="text-2xl font-bold tracking-tight" style={{ color: TEXT }}>Jeu de l'Imitation</span>
+            <span style={{ color: MUTED }}>·</span>
+            <h1 className="text-xl font-bold" style={{ color: TEXT }}>Tableau de bord</h1>
+          </div>
+          <button
+            onClick={logout}
+            className="text-sm transition-colors px-3 py-1.5 rounded-lg"
+            style={{ color: MUTED, border: `1px solid ${BORDER}` }}
             onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
             onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
           >
-            ← Retour
-          </Link>
-          <span style={{ color: MUTED }}>·</span>
-          <h1 className="text-xl font-bold" style={{ color: TEXT }}>Tableau de bord</h1>
+            Se déconnecter
+          </button>
         </div>
 
         {/* Tabs */}
