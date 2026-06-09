@@ -246,7 +246,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     );
 
     if (existingUser) {
-      dispatch({ type: 'SET_USER', payload: existingUser });
+      // Always apply the role chosen at login — user may switch between élève and enseignant
+      dispatch({ type: 'SET_USER', payload: { ...existingUser, role } });
     } else {
       const user: User = {
         id: uuidv4(),
