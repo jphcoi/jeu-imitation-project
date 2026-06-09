@@ -179,7 +179,7 @@ function ChatbotCreator({
 
   const userMessageCount = messages.filter(m => m.isFromUser).length;
   useEffect(() => {
-    if (userMessageCount >= 3 && !canFinish) setCanFinish(true);
+    if (userMessageCount >= 5 && !canFinish) setCanFinish(true);
   }, [userMessageCount, canFinish]);
 
   const sendMessage = async () => {
