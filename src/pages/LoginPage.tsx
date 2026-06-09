@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
-const BG = '#0f172a';
-const CARD = '#1e293b';
-const BORDER = 'rgba(255,255,255,0.08)';
-const MUTED = '#6b7280';
+const BG = '#faf7f2';
+const CARD = '#ffffff';
+const BORDER = 'rgba(0,0,0,0.08)';
+const MUTED = '#78716c';
+const TEXT = '#1c1917';
 const ACCENT = '#6366f1';
 
 export function LoginPage() {
@@ -32,7 +33,7 @@ export function LoginPage() {
     >
       <div className="w-full max-w-md">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Jeu de l'Imitation</h1>
+          <h1 className="text-3xl font-bold tracking-tight" style={{ color: TEXT }}>Jeu de l'Imitation</h1>
           <p className="mt-2 text-sm" style={{ color: MUTED }}>Test de Turing — Projet pédagogique</p>
         </div>
 
@@ -42,7 +43,7 @@ export function LoginPage() {
         >
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Pseudonyme</label>
+              <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Pseudonyme</label>
               <input
                 type="text"
                 value={pseudo}
@@ -55,7 +56,7 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Code établissement</label>
+              <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Code établissement</label>
               <input
                 type="text"
                 value={schoolId}
@@ -69,7 +70,7 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Classe / Groupe</label>
+              <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Classe / Groupe</label>
               <input
                 type="text"
                 value={classId}
@@ -80,7 +81,7 @@ export function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white mb-3">Rôle</label>
+              <label className="block text-sm font-medium mb-3" style={{ color: TEXT }}>Rôle</label>
               <div className="flex gap-6">
                 {(['student', 'teacher'] as const).map(r => (
                   <label key={r} className="flex items-center gap-2.5 cursor-pointer">
@@ -101,7 +102,7 @@ export function LoginPage() {
                     >
                       {role === r && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
                     </div>
-                    <span className="text-sm" style={{ color: role === r ? '#f9fafb' : MUTED }}>
+                    <span className="text-sm" style={{ color: role === r ? TEXT : MUTED }}>
                       {r === 'student' ? 'Élève' : 'Enseignant'}
                     </span>
                   </label>

@@ -5,22 +5,22 @@
 @tailwind utilities;
 
 :root {
-  --retro-bg: #0f172a;
+  --retro-bg: #faf7f2;
   --retro-green: #6366f1;
-  --retro-amber: #f59e0b;
-  --retro-cyan: #06b6d4;
-  --retro-magenta: #ec4899;
-  --retro-border: rgba(255, 255, 255, 0.08);
-  --retro-panel: #1e293b;
-  --retro-panel-light: #243044;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
+  --retro-amber: #d97706;
+  --retro-cyan: #0891b2;
+  --retro-magenta: #db2777;
+  --retro-border: rgba(0, 0, 0, 0.08);
+  --retro-panel: #ffffff;
+  --retro-panel-light: #f5f0e8;
+  --text-primary: #1c1917;
+  --text-secondary: #78716c;
 }
 
 @layer base {
   body {
     @apply min-h-screen;
-    background: #0f172a;
+    background: #faf7f2;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     color: var(--text-primary);
   }
@@ -51,8 +51,8 @@
     background: var(--retro-panel);
     border: 1px solid var(--retro-border);
     box-shadow:
-      0 4px 6px -1px rgba(0, 0, 0, 0.4),
-      0 2px 4px -2px rgba(0, 0, 0, 0.3);
+      0 1px 3px rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
   .retro-title-bar {
@@ -263,7 +263,7 @@
   }
 
   .retro-card:hover {
-    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transform: translateY(-2px);
   }
 

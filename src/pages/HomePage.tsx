@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
-const BG = '#0f172a';
-const CARD = '#1e293b';
-const BORDER = 'rgba(255,255,255,0.08)';
-const MUTED = '#6b7280';
-const SUBTLE = '#374151';
+const BG = '#faf7f2';
+const CARD = '#ffffff';
+const BORDER = 'rgba(0,0,0,0.08)';
+const MUTED = '#78716c';
+const SUBTLE = '#a8a29e';
+const TEXT = '#1c1917';
 
 export function HomePage() {
   const { state, logout } = useGame();
@@ -22,7 +23,7 @@ export function HomePage() {
   return (
     <div
       className="h-screen flex flex-col overflow-hidden"
-      style={{ background: BG, color: '#f9fafb', fontFamily: 'Inter, system-ui, sans-serif' }}
+      style={{ background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       {/* ── Header ── */}
       <header
@@ -30,7 +31,7 @@ export function HomePage() {
         style={{ borderBottom: `1px solid ${BORDER}` }}
       >
         <div className="flex items-baseline gap-4">
-          <span className="text-2xl font-bold tracking-tight text-white">
+          <span className="text-2xl font-bold tracking-tight" style={{ color: TEXT }}>
             Jeu de l'Imitation
           </span>
           <span style={{ color: MUTED }} className="text-sm">
@@ -47,7 +48,7 @@ export function HomePage() {
           onClick={logout}
           className="text-sm transition-colors px-3 py-1.5 rounded-lg"
           style={{ color: MUTED, border: `1px solid ${BORDER}` }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#f9fafb')}
+          onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
           onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
         >
           Se déconnecter
@@ -128,7 +129,7 @@ export function HomePage() {
                 >
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <p className="text-sm leading-relaxed" style={{ color: '#9ca3af' }}>{text}</p>
+                <p className="text-sm leading-relaxed" style={{ color: MUTED }}>{text}</p>
               </div>
             ))}
           </div>
@@ -146,7 +147,7 @@ export function HomePage() {
 function Stat({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
     <div className="px-8 py-5" style={{ background: CARD }}>
-      <p className="text-3xl font-bold text-white tabular-nums">{value}</p>
+      <p className="text-3xl font-bold tabular-nums" style={{ color: TEXT }}>{value}</p>
       <p className="text-sm mt-1" style={{ color: MUTED }}>{label}</p>
       {sub && <p className="text-xs mt-0.5" style={{ color: SUBTLE }}>{sub}</p>}
     </div>
@@ -170,27 +171,19 @@ function StepCard({ step, title, description, to, accent, cta, urgent }: {
         onMouseEnter={e => (e.currentTarget.style.borderLeftColor = accent)}
         onMouseLeave={e => (e.currentTarget.style.borderLeftColor = urgent ? accent : 'transparent')}
       >
-        <div className="flex items-start justify-between gap-8">
-          <div className="flex-1">
-            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: accent }}>
-              Étape {step}
-            </p>
-            <h2 className="text-2xl font-bold text-white leading-tight">{title}</h2>
-            <p className="mt-3 text-sm leading-relaxed" style={{ color: '#9ca3af', maxWidth: '480px' }}>
-              {description}
-            </p>
-          </div>
-          <span
-            className="text-8xl font-black leading-none select-none shrink-0 tabular-nums transition-opacity"
-            style={{ color: accent, opacity: 0.08 }}
-          >
-            {step}
-          </span>
+        <div className="flex-1">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: accent }}>
+            Étape {step}
+          </p>
+          <h2 className="text-2xl font-bold leading-tight mb-3" style={{ color: TEXT }}>{title}</h2>
+          <p className="text-sm leading-relaxed" style={{ color: MUTED, maxWidth: '480px' }}>
+            {description}
+          </p>
         </div>
         <div className="mt-6">
           <span
             className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all"
-            style={{ background: `${accent}18`, color: accent }}
+            style={{ background: `${accent}15`, color: accent }}
           >
             {cta}
             <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,11 +202,11 @@ function BottomLink({ to, label, sub }: { to: string; label: string; sub: string
       to={to}
       className="flex items-center justify-between px-8 py-8 group transition-colors"
       style={{ background: CARD }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#243044')}
+      onMouseEnter={e => (e.currentTarget.style.background = '#f5f0e8')}
       onMouseLeave={e => (e.currentTarget.style.background = CARD)}
     >
       <div>
-        <p className="text-base font-bold text-white">{label}</p>
+        <p className="text-base font-bold" style={{ color: TEXT }}>{label}</p>
         <p className="text-xs mt-1" style={{ color: MUTED }}>{sub}</p>
       </div>
       <svg

@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
-const BG = '#0f172a';
-const CARD = '#1e293b';
-const PANEL = '#243044';
-const BORDER = 'rgba(255,255,255,0.08)';
-const MUTED = '#6b7280';
+const BG = '#faf7f2';
+const CARD = '#ffffff';
+const PANEL = '#f5f0e8';
+const BORDER = 'rgba(0,0,0,0.08)';
+const MUTED = '#78716c';
+const TEXT = '#1c1917';
 const ACCENT = '#6366f1';
 
 export function DashboardPage() {
@@ -83,34 +84,34 @@ export function DashboardPage() {
   return (
     <div
       className="min-h-screen"
-      style={{ background: BG, color: '#f9fafb', fontFamily: 'Inter, system-ui, sans-serif' }}
+      style={{ background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Link
             to="/"
             className="text-sm transition-colors"
             style={{ color: MUTED }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#f9fafb')}
+            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
             onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
           >
             ← Retour
           </Link>
           <span style={{ color: MUTED }}>·</span>
-          <h1 className="text-xl font-bold text-white">Tableau de bord</h1>
+          <h1 className="text-xl font-bold" style={{ color: TEXT }}>Tableau de bord</h1>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-8 p-1 rounded-xl w-fit" style={{ background: CARD }}>
+        <div className="flex gap-1 mb-8 p-1 rounded-xl w-fit" style={{ background: PANEL }}>
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
               style={{
-                background: activeTab === tab.id ? PANEL : 'transparent',
-                color: activeTab === tab.id ? '#f9fafb' : MUTED,
+                background: activeTab === tab.id ? CARD : 'transparent',
+                color: activeTab === tab.id ? TEXT : MUTED,
+                boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               }}
             >
               {tab.label}
@@ -123,10 +124,10 @@ export function DashboardPage() {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-px mb-8 rounded-2xl overflow-hidden" style={{ background: BORDER }}>
               {[
-                { label: 'Sessions terminées', value: completedSessions.length, color: '#f9fafb' },
-                { label: 'Votes', value: `${correctVotes}/${totalVotes}`, color: '#06b6d4' },
-                { label: 'Fiabilité moy.', value: `${avgReliability.toFixed(0)}%`, color: '#f59e0b' },
-                { label: 'Crédibilité moy.', value: `${avgCredibility.toFixed(0)}%`, color: '#ec4899' },
+                { label: 'Sessions terminées', value: completedSessions.length, color: TEXT },
+                { label: 'Votes', value: `${correctVotes}/${totalVotes}`, color: '#0891b2' },
+                { label: 'Fiabilité moy.', value: `${avgReliability.toFixed(0)}%`, color: '#d97706' },
+                { label: 'Crédibilité moy.', value: `${avgCredibility.toFixed(0)}%`, color: '#db2777' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="px-6 py-5" style={{ background: CARD }}>
                   <p className="text-3xl font-bold tabular-nums" style={{ color }}>{value}</p>
@@ -135,36 +136,31 @@ export function DashboardPage() {
               ))}
             </div>
 
-            {/* Distribution chart */}
             <div className="rounded-2xl p-6 mb-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
               <p className="text-xs font-semibold uppercase tracking-widest mb-6" style={{ color: MUTED }}>
                 Distribution des scores
               </p>
-
               <div className="mb-6">
                 <p className="text-sm mb-2" style={{ color: MUTED }}>Répartition des détections</p>
-                <div className="flex h-6 rounded-full overflow-hidden" style={{ background: BG }}>
+                <div className="flex h-5 rounded-full overflow-hidden" style={{ background: PANEL }}>
                   <div
-                    className="h-full transition-all"
                     style={{
                       width: `${totalVotes > 0 ? (correctVotes / totalVotes) * 100 : 0}%`,
                       background: ACCENT,
                     }}
                   />
                   <div
-                    className="h-full transition-all"
                     style={{
                       width: `${totalVotes > 0 ? ((totalVotes - correctVotes) / totalVotes) * 100 : 0}%`,
-                      background: '#ec4899',
+                      background: '#db2777',
                     }}
                   />
                 </div>
-                <div className="flex justify-between text-xs mt-2" style={{ color: MUTED }}>
+                <div className="flex justify-between text-xs mt-2">
                   <span style={{ color: ACCENT }}>Correctes ({correctVotes})</span>
-                  <span style={{ color: '#ec4899' }}>Incorrectes ({totalVotes - correctVotes})</span>
+                  <span style={{ color: '#db2777' }}>Incorrectes ({totalVotes - correctVotes})</span>
                 </div>
               </div>
-
               <div>
                 <p className="text-sm mb-3" style={{ color: MUTED }}>Top enquêteurs</p>
                 <div className="space-y-2">
@@ -174,8 +170,8 @@ export function DashboardPage() {
                     .map((score, i) => (
                       <div key={score.userId} className="flex items-center gap-3">
                         <span className="w-7 text-xs tabular-nums" style={{ color: MUTED }}>#{i + 1}</span>
-                        <span className="w-28 truncate text-sm text-white">{score.pseudo}</span>
-                        <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: BG }}>
+                        <span className="w-28 truncate text-sm" style={{ color: TEXT }}>{score.pseudo}</span>
+                        <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: PANEL }}>
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -221,7 +217,7 @@ export function DashboardPage() {
                       return (
                         <tr key={session.id} style={{ borderBottom: `1px solid ${BORDER}` }}>
                           <td className="px-5 py-3 font-mono text-xs" style={{ color: MUTED }}>{session.id.slice(0, 8)}…</td>
-                          <td className="px-5 py-3" style={{ color: '#ec4899' }}>{personaA?.name || '?'} / {personaB?.name || '?'}</td>
+                          <td className="px-5 py-3" style={{ color: '#db2777' }}>{personaA?.name || '?'} / {personaB?.name || '?'}</td>
                           <td className="px-5 py-3" style={{ color: MUTED }}>Chat {session.aiIsInChat}</td>
                           <td className="px-5 py-3" style={{ color: MUTED }}>A:{session.messages.chatA.length} / B:{session.messages.chatB.length}</td>
                           <td className="px-5 py-3" style={{ color: MUTED }}>{new Date(session.startTime).toLocaleDateString('fr-FR')}</td>
@@ -229,9 +225,9 @@ export function DashboardPage() {
                             {vote ? (
                               vote.isCorrect
                                 ? <span style={{ color: ACCENT }}>✓ Correcte</span>
-                                : <span style={{ color: '#ec4899' }}>✗ Incorrecte</span>
+                                : <span style={{ color: '#db2777' }}>✗ Incorrecte</span>
                             ) : (
-                              <span style={{ color: '#f59e0b' }}>En attente</span>
+                              <span style={{ color: '#d97706' }}>En attente</span>
                             )}
                           </td>
                         </tr>
@@ -257,23 +253,22 @@ export function DashboardPage() {
                     <div key={score.personaId} className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                          <h3 className="text-base font-bold" style={{ color: '#ec4899' }}>{score.personaName}</h3>
+                          <h3 className="text-base font-bold" style={{ color: '#db2777' }}>{score.personaName}</h3>
                           {persona?.description && (
                             <p className="text-sm mt-0.5" style={{ color: MUTED }}>{persona.description}</p>
                           )}
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold tabular-nums" style={{ color: '#06b6d4' }}>
+                          <p className="text-2xl font-bold tabular-nums" style={{ color: '#0891b2' }}>
                             {score.credibilityIndex.toFixed(0)}%
                           </p>
                           <p className="text-xs" style={{ color: MUTED }}>Crédibilité IC</p>
                         </div>
                       </div>
-
                       <div className="grid grid-cols-3 gap-4 text-center mb-4">
                         {[
-                          { value: score.totalSessions, label: 'Sessions', color: '#f9fafb' },
-                          { value: score.timesDetectedAsAI, label: 'Détecté comme IA', color: '#ec4899' },
+                          { value: score.totalSessions, label: 'Sessions', color: TEXT },
+                          { value: score.timesDetectedAsAI, label: 'Détecté comme IA', color: '#db2777' },
                           { value: score.totalSessions - score.timesDetectedAsAI, label: 'Passé pour humain', color: ACCENT },
                         ].map(({ value, label, color }) => (
                           <div key={label}>
@@ -282,22 +277,20 @@ export function DashboardPage() {
                           </div>
                         ))}
                       </div>
-
-                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: BG }}>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: PANEL }}>
                         <div
                           className="h-full rounded-full"
                           style={{
                             width: `${score.credibilityIndex}%`,
-                            background: score.credibilityIndex > 50 ? '#06b6d4' : '#ec4899',
+                            background: score.credibilityIndex > 50 ? '#0891b2' : '#db2777',
                           }}
                         />
                       </div>
-
                       {persona && (
                         <p className="text-xs mt-3" style={{ color: MUTED }}>
-                          <span style={{ color: '#06b6d4' }}>Traits :</span> {persona.traits.join(', ')}
+                          <span style={{ color: '#0891b2' }}>Traits :</span> {persona.traits.join(', ')}
                           {' · '}
-                          <span style={{ color: '#06b6d4' }}>Intérêts :</span> {persona.interests.join(', ')}
+                          <span style={{ color: '#0891b2' }}>Intérêts :</span> {persona.interests.join(', ')}
                         </p>
                       )}
                     </div>
@@ -313,13 +306,13 @@ export function DashboardPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-                <h3 className="text-sm font-bold text-white mb-2">Export JSON (complet)</h3>
+                <h3 className="text-sm font-bold mb-2" style={{ color: TEXT }}>Export JSON (complet)</h3>
                 <p className="text-xs mb-4" style={{ color: MUTED }}>
-                  Toutes les données : sessions, votes, scores, statistiques. Idéal pour une analyse approfondie.
+                  Toutes les données : sessions, votes, scores, statistiques.
                 </p>
                 <button
                   onClick={exportData}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
+                  className="w-full py-2.5 rounded-xl text-sm font-medium text-white"
                   style={{ background: ACCENT }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
                   onMouseLeave={e => (e.currentTarget.style.background = ACCENT)}
@@ -327,30 +320,27 @@ export function DashboardPage() {
                   Télécharger JSON
                 </button>
               </div>
-
               <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-                <h3 className="text-sm font-bold text-white mb-2">Export CSV (enquêteurs)</h3>
+                <h3 className="text-sm font-bold mb-2" style={{ color: TEXT }}>Export CSV (enquêteurs)</h3>
                 <p className="text-xs mb-4" style={{ color: MUTED }}>
-                  Tableau des scores des enquêteurs. Compatible Excel / Google Sheets.
+                  Tableau des scores. Compatible Excel / Google Sheets.
                 </p>
                 <button
                   onClick={exportCSV}
                   className="w-full py-2.5 rounded-xl text-sm font-medium transition-colors"
-                  style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: '#06b6d4' }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#06b6d4')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = BORDER)}
+                  style={{ background: PANEL, border: `1px solid ${BORDER}`, color: '#0891b2' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#e0f2fe')}
+                  onMouseLeave={e => (e.currentTarget.style.background = PANEL)}
                 >
                   Télécharger CSV
                 </button>
               </div>
             </div>
-
-            <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid rgba(245,158,11,0.3)` }}>
-              <h3 className="text-sm font-bold mb-2" style={{ color: '#f59e0b' }}>Conformité RGPD</h3>
+            <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid rgba(217,119,6,0.3)` }}>
+              <h3 className="text-sm font-bold mb-2" style={{ color: '#d97706' }}>Conformité RGPD</h3>
               <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
-                Les données exportées sont anonymisées (pseudonymes uniquement).
-                Aucune donnée personnelle identifiable n'est incluse.
-                Les données sont stockées localement sur votre appareil (localStorage).
+                Données anonymisées (pseudonymes uniquement). Aucune donnée personnelle identifiable.
+                Stockage local sur votre appareil (localStorage).
               </p>
             </div>
           </div>

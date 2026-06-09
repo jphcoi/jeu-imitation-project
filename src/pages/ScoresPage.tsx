@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
-const BG = '#0f172a';
-const CARD = '#1e293b';
-const BORDER = 'rgba(255,255,255,0.08)';
-const MUTED = '#6b7280';
+const BG = '#faf7f2';
+const CARD = '#ffffff';
+const BORDER = 'rgba(0,0,0,0.08)';
+const MUTED = '#78716c';
+const TEXT = '#1c1917';
 
 export function ScoresPage() {
   const { state } = useGame();
@@ -19,7 +20,7 @@ export function ScoresPage() {
   return (
     <div
       className="min-h-screen"
-      style={{ background: BG, color: '#f9fafb', fontFamily: 'Inter, system-ui, sans-serif' }}
+      style={{ background: BG, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Header */}
@@ -28,13 +29,13 @@ export function ScoresPage() {
             to="/"
             className="text-sm transition-colors"
             style={{ color: MUTED }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#f9fafb')}
+            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
             onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
           >
             ← Retour
           </Link>
           <span style={{ color: MUTED }}>·</span>
-          <h1 className="text-xl font-bold text-white">Classements</h1>
+          <h1 className="text-xl font-bold" style={{ color: TEXT }}>Classements</h1>
         </div>
 
         {/* Personal stats */}
@@ -44,10 +45,10 @@ export function ScoresPage() {
             style={{ background: BORDER }}
           >
             {[
-              { label: 'Classement', value: `#${userRank || '-'}`, color: '#f59e0b' },
-              { label: 'Points totaux', value: String(userScore.totalPoints), color: '#f9fafb' },
-              { label: 'Détections', value: `${userScore.correctDetections}/${userScore.totalSessions}`, color: '#06b6d4' },
-              { label: 'Fiabilité (Rᵢ)', value: `${userScore.reliabilityIndex.toFixed(0)}%`, color: '#ec4899' },
+              { label: 'Classement', value: `#${userRank || '-'}`, color: '#d97706' },
+              { label: 'Points totaux', value: String(userScore.totalPoints), color: TEXT },
+              { label: 'Détections', value: `${userScore.correctDetections}/${userScore.totalSessions}`, color: '#0891b2' },
+              { label: 'Fiabilité (Rᵢ)', value: `${userScore.reliabilityIndex.toFixed(0)}%`, color: '#db2777' },
             ].map(({ label, value, color }) => (
               <div key={label} className="px-6 py-5" style={{ background: CARD }}>
                 <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
@@ -75,22 +76,22 @@ export function ScoresPage() {
                     key={score.userId}
                     className="flex items-center justify-between px-6 py-4"
                     style={{
-                      background: score.userId === currentUser?.id ? 'rgba(99,102,241,0.08)' : 'transparent',
+                      background: score.userId === currentUser?.id ? 'rgba(99,102,241,0.06)' : 'transparent',
                       borderBottom: `1px solid ${BORDER}`,
                       borderLeft: score.userId === currentUser?.id ? '3px solid #6366f1' : '3px solid transparent',
                     }}
                   >
                     <div className="flex items-center gap-4">
                       <span
-                        className="text-lg font-bold w-8 tabular-nums"
+                        className="text-base font-bold w-8 tabular-nums"
                         style={{
-                          color: index === 0 ? '#f59e0b' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : MUTED,
+                          color: index === 0 ? '#d97706' : index === 1 ? '#78716c' : index === 2 ? '#92400e' : MUTED,
                         }}
                       >
                         #{index + 1}
                       </span>
                       <div>
-                        <p className="text-sm font-medium text-white">
+                        <p className="text-sm font-medium" style={{ color: TEXT }}>
                           {score.pseudo}
                           {score.userId === currentUser?.id && (
                             <span className="ml-2 text-xs" style={{ color: '#6366f1' }}>vous</span>
@@ -101,7 +102,7 @@ export function ScoresPage() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-white tabular-nums">{score.totalPoints} pts</span>
+                    <span className="text-sm font-bold tabular-nums" style={{ color: TEXT }}>{score.totalPoints} pts</span>
                   </div>
                 ))
               )}
@@ -111,7 +112,7 @@ export function ScoresPage() {
           {/* Personas */}
           <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
             <div className="px-6 py-4" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
-              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#ec4899' }}>
+              <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#db2777' }}>
                 Meilleurs Personnas
               </p>
             </div>
@@ -128,28 +129,28 @@ export function ScoresPage() {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-4">
                         <span
-                          className="text-lg font-bold w-8 tabular-nums"
+                          className="text-base font-bold w-8 tabular-nums"
                           style={{
-                            color: index === 0 ? '#ec4899' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : MUTED,
+                            color: index === 0 ? '#db2777' : index === 1 ? '#78716c' : index === 2 ? '#92400e' : MUTED,
                           }}
                         >
                           #{index + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-medium" style={{ color: '#ec4899' }}>{score.personaName}</p>
+                          <p className="text-sm font-medium" style={{ color: '#db2777' }}>{score.personaName}</p>
                           <p className="text-xs mt-0.5" style={{ color: MUTED }}>
                             {score.totalSessions} sessions · {score.timesDetectedAsAI} détections IA
                           </p>
                         </div>
                       </div>
-                      <span className="text-sm font-bold tabular-nums" style={{ color: '#06b6d4' }}>
+                      <span className="text-sm font-bold tabular-nums" style={{ color: '#0891b2' }}>
                         {score.credibilityIndex.toFixed(0)}%
                       </span>
                     </div>
-                    <div className="ml-12 h-1.5 rounded-full overflow-hidden" style={{ background: CARD }}>
+                    <div className="ml-12 h-1.5 rounded-full overflow-hidden" style={{ background: BORDER }}>
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `${score.credibilityIndex}%`, background: '#06b6d4' }}
+                        style={{ width: `${score.credibilityIndex}%`, background: '#0891b2' }}
                       />
                     </div>
                   </div>
@@ -165,13 +166,13 @@ export function ScoresPage() {
           style={{ background: CARD, border: `1px solid ${BORDER}` }}
         >
           <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: MUTED }}>Légende</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm" style={{ color: '#9ca3af' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm" style={{ color: MUTED }}>
             <div className="space-y-1.5">
-              <p><span style={{ color: '#f59e0b' }}>Points</span> — +2 par détection correcte, +1 bonus pour justification argumentée</p>
-              <p><span style={{ color: '#06b6d4' }}>Rᵢ (Fiabilité)</span> — % de détections correctes</p>
+              <p><span style={{ color: '#d97706' }}>Points</span> — +2 par détection correcte, +1 bonus pour justification argumentée</p>
+              <p><span style={{ color: '#0891b2' }}>Rᵢ (Fiabilité)</span> — % de détections correctes</p>
             </div>
             <div className="space-y-1.5">
-              <p><span style={{ color: '#ec4899' }}>IC (Crédibilité)</span> — % de fois où le personna n'a PAS été détecté comme IA</p>
+              <p><span style={{ color: '#db2777' }}>IC (Crédibilité)</span> — % de fois où le personna n'a PAS été détecté comme IA</p>
               <p>Plus l'IC est élevé, plus le personna est crédible.</p>
             </div>
           </div>

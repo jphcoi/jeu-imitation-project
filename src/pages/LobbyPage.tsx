@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { useMultiplayer } from '../hooks/useMultiplayer';
 
-const BG = '#0f172a';
-const CARD = '#1e293b';
-const BORDER = 'rgba(255,255,255,0.08)';
-const MUTED = '#6b7280';
+const BG = '#faf7f2';
+const CARD = '#ffffff';
+const BORDER = 'rgba(0,0,0,0.08)';
+const PANEL = '#f5f0e8';
+const MUTED = '#78716c';
+const TEXT = '#1c1917';
 
 export function LobbyPage() {
   const { state } = useGame();
@@ -56,32 +58,25 @@ export function LobbyPage() {
           className="rounded-2xl p-10 text-center"
           style={{ background: CARD, border: `1px solid ${BORDER}` }}
         >
-          {/* Animated dots */}
           <div className="flex justify-center gap-2 mb-8">
             <div className="typing-dot" />
             <div className="typing-dot" />
             <div className="typing-dot" />
           </div>
 
-          <h1 className="text-lg font-bold text-white mb-1">Recherche d'un partenaire</h1>
-          <p className="text-sm mb-1" style={{ color: MUTED }}>
-            {currentUser?.pseudo}
-          </p>
+          <h1 className="text-lg font-bold mb-1" style={{ color: TEXT }}>Recherche d'un partenaire</h1>
+          <p className="text-sm mb-1" style={{ color: MUTED }}>{currentUser?.pseudo}</p>
           {(currentUser?.schoolId || currentUser?.classId) && (
             <p className="text-xs mb-6" style={{ color: MUTED }}>
               {[currentUser?.schoolId, currentUser?.classId].filter(Boolean).join(' · ')}
             </p>
           )}
 
-          {/* Timer */}
           <div
             className="inline-block px-8 py-4 rounded-xl mb-6"
-            style={{ background: BG, border: `1px solid ${BORDER}` }}
+            style={{ background: PANEL, border: `1px solid ${BORDER}` }}
           >
-            <p
-              className="text-3xl font-bold tabular-nums tracking-widest"
-              style={{ color: '#6366f1' }}
-            >
+            <p className="text-3xl font-bold tabular-nums tracking-widest" style={{ color: '#6366f1' }}>
               {timeStr}
             </p>
           </div>
@@ -93,8 +88,8 @@ export function LobbyPage() {
           <button
             onClick={handleCancel}
             className="px-6 py-2.5 rounded-xl text-sm font-medium transition-colors"
-            style={{ background: BG, border: `1px solid ${BORDER}`, color: MUTED }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#f9fafb')}
+            style={{ background: PANEL, border: `1px solid ${BORDER}`, color: MUTED }}
+            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
             onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
           >
             Annuler

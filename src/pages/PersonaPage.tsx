@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { RetroContainer } from '../components/RetroContainer';
 import { v4 as uuidv4 } from 'uuid';
 import type { Persona } from '../types';
 
@@ -10,7 +9,16 @@ const PERSONA_CHAT_URL = import.meta.env.PROD
   ? '/api/persona-chat'
   : (import.meta.env.VITE_API_URL?.replace('/chat', '/persona-chat') || '/api/persona-chat');
 
-// ─── Chatbot helpers ───────────────────────────────────────────────────────
+const BG = '#faf7f2';
+const CARD = '#ffffff';
+const PANEL = '#f5f0e8';
+const BORDER = 'rgba(0,0,0,0.08)';
+const TEXT = '#1c1917';
+const MUTED = '#78716c';
+const ACCENT = '#6366f1';
+const PINK = '#db2777';
+
+// ─── Chatbot helpers ────────────────────────────────────────────────────────
 
 interface ConversationMessage {
   id: string;
@@ -24,7 +32,7 @@ const OPENING_MESSAGE =
   "donc plus il est réaliste, mieux c'est ! " +
   "Pour commencer : comment s'appelle ton personnage ?";
 
-// ─── Manual form helpers ───────────────────────────────────────────────────
+// ─── Manual form helpers ────────────────────────────────────────────────────
 
 const TRAIT_SUGGESTIONS = [
   'timide', 'extraverti', 'curieux', 'réservé', 'bavard',
@@ -50,7 +58,7 @@ const STYLE_SUGGESTIONS = [
   'change parfois de sujet',
 ];
 
-// ─── Main component ────────────────────────────────────────────────────────
+// ─── Main component ──────────────────────────────────────────────────────────
 
 type Tab = 'chatbot' | 'manual' | 'list';
 
@@ -59,7 +67,6 @@ export function PersonaPage() {
   const { currentUser, personas } = state;
 
   const [tab, setTab] = useState<Tab>('chatbot');
-  // All personas from the same class (visible to classmates)
   const classPersonas = personas.filter(p => p.classId === (currentUser?.classId || 'default'));
 
   const deletePersona = (id: string) => {
@@ -68,43 +75,49 @@ export function PersonaPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="scanline"></div>
-      <div className="max-w-3xl mx-auto">
+  const TABS = [
+    { id: 'chatbot' as Tab, label: 'Chatbot' },
+    { id: 'manual' as Tab, label: 'Formulaire' },
+    { id: 'list' as Tab, label: `Personnages (${classPersonas.length})` },
+  ];
 
+  return (
+    <div
+      className="min-h-screen"
+      style={{ background: BG, fontFamily: 'Inter, system-ui, sans-serif', color: TEXT }}
+    >
+      <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <Link to="/" className="retro-text-cyan hover:glow-text text-lg">
-              {'<'} Retour au menu
-            </Link>
-            <h1 className="text-2xl mt-2 glow-text" style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '16px' }}>
-              CREATION DE PERSONNAGE
-            </h1>
-          </div>
+        <div className="flex items-center gap-4 mb-6">
+          <Link
+            to="/"
+            className="text-sm transition-colors"
+            style={{ color: MUTED }}
+            onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+            onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+          >
+            ← Retour
+          </Link>
+          <span style={{ color: MUTED }}>·</span>
+          <h1 className="text-xl font-bold" style={{ color: TEXT }}>Création de personnage</h1>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-3 mb-6 flex-wrap">
-          <button
-            onClick={() => setTab('chatbot')}
-            className={`retro-btn ${tab === 'chatbot' ? '' : 'retro-btn-amber'}`}
-          >
-            Chatbot
-          </button>
-          <button
-            onClick={() => setTab('manual')}
-            className={`retro-btn ${tab === 'manual' ? '' : 'retro-btn-amber'}`}
-          >
-            Formulaire
-          </button>
-          <button
-            onClick={() => setTab('list')}
-            className={`retro-btn ${tab === 'list' ? '' : 'retro-btn-amber'}`}
-          >
-            Personnages de la classe ({classPersonas.length})
-          </button>
+        <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ background: PANEL }}>
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              style={{
+                background: tab === t.id ? CARD : 'transparent',
+                color: tab === t.id ? TEXT : MUTED,
+                boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {tab === 'chatbot' && (
@@ -124,17 +137,24 @@ export function PersonaPage() {
         )}
 
         {tab === 'list' && (
-          <RetroContainer title="PERSONNAGES DE LA CLASSE">
+          <div>
             {classPersonas.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-xl retro-text-amber mb-4">Aucun personnage créé dans ta classe</p>
-                <p className="text-lg mb-4">Utilise le chatbot ou le formulaire pour créer le premier !</p>
-                <button onClick={() => setTab('chatbot')} className="retro-btn retro-btn-magenta">
+              <div
+                className="rounded-2xl p-12 text-center"
+                style={{ background: CARD, border: `1px solid ${BORDER}` }}
+              >
+                <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun personnage dans ta classe</p>
+                <p className="text-sm mb-5" style={{ color: MUTED }}>Utilise le chatbot ou le formulaire pour commencer.</p>
+                <button
+                  onClick={() => setTab('chatbot')}
+                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-white"
+                  style={{ background: ACCENT }}
+                >
                   Créer un personnage
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {classPersonas.map(persona => (
                   <PersonaCard
                     key={persona.id}
@@ -144,14 +164,14 @@ export function PersonaPage() {
                 ))}
               </div>
             )}
-          </RetroContainer>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Chatbot creator ────────────────────────────────────────────────────────
+// ─── Chatbot creator ──────────────────────────────────────────────────────────
 
 function ChatbotCreator({
   classId,
@@ -170,7 +190,6 @@ function ChatbotCreator({
   const [canFinish, setCanFinish] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extracted, setExtracted] = useState<Omit<Persona, 'id' | 'createdAt' | 'createdBy' | 'classId'> | null>(null);
-  const [saved, setSaved] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -185,13 +204,11 @@ function ChatbotCreator({
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || isLoading) return;
-
     const userMsg: ConversationMessage = { id: uuidv4(), content: text, isFromUser: true };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setInput('');
     setIsLoading(true);
-
     try {
       const res = await fetch(PERSONA_CHAT_URL, {
         method: 'POST',
@@ -244,106 +261,195 @@ function ChatbotCreator({
   const savePersona = () => {
     if (!extracted) return;
     createPersona({ ...extracted, classId });
-    setSaved(true);
     setMessages([{ id: uuidv4(), content: OPENING_MESSAGE, isFromUser: false }]);
     setExtracted(null);
     setCanFinish(false);
     onSaved();
   };
 
-  return (
-    <>
-      {saved && (
-        <div className="retro-card retro-border-amber mb-4 text-center">
-          <p className="retro-text-amber text-lg">Personnage sauvegardé !</p>
+  // ── Confirmation card ────────────────────────────────────────────────────
+
+  if (extracted) {
+    return (
+      <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-2 h-2 rounded-full" style={{ background: '#10b981' }} />
+          <p className="text-sm font-semibold" style={{ color: TEXT }}>Personnage généré</p>
         </div>
-      )}
-
-      {extracted ? (
-        <RetroContainer title="CONFIRMER LE PERSONNAGE" className="mb-6">
-          <div className="space-y-3 text-lg">
-            <p><span className="retro-text-cyan">Prénom :</span> {extracted.name}</p>
-            <p><span className="retro-text-cyan">Âge :</span> {extracted.age} ans</p>
-            <p><span className="retro-text-cyan">Description :</span> {extracted.description}</p>
-            <p>
-              <span className="retro-text-cyan">Traits :</span>{' '}
-              {extracted.traits.map(t => <span key={t} className="retro-badge mr-1">{t}</span>)}
-            </p>
-            <p>
-              <span className="retro-text-cyan">Intérêts :</span>{' '}
-              {extracted.interests.map(i => <span key={i} className="retro-badge retro-text-magenta mr-1">{i}</span>)}
-            </p>
-            <p><span className="retro-text-cyan">Style :</span> {extracted.speakingStyle}</p>
-          </div>
-          <div className="flex gap-4 mt-6">
-            <button onClick={savePersona} className="retro-btn flex-1">Sauvegarder</button>
-            <button onClick={() => setExtracted(null)} className="retro-btn retro-btn-amber">
-              Modifier (continuer)
-            </button>
-          </div>
-        </RetroContainer>
-      ) : (
-        <RetroContainer title="CREATION PAR CHATBOT">
-          <div
-            ref={chatRef}
-            className="chat-container mb-4"
-            style={{ minHeight: '300px', maxHeight: '400px', overflowY: 'auto' }}
-          >
-            {messages.map(msg => (
-              <div
-                key={msg.id}
-                className={`chat-message mb-2 ${msg.isFromUser ? 'chat-message-sent' : 'chat-message-received'}`}
+        <div className="space-y-3 mb-6">
+          {[
+            { label: 'Prénom', value: extracted.name },
+            { label: 'Âge', value: `${extracted.age} ans` },
+            { label: 'Description', value: extracted.description },
+            { label: 'Style', value: extracted.speakingStyle },
+          ].filter(({ value }) => value).map(({ label, value }) => (
+            <div key={label} className="flex gap-4 items-start">
+              <span
+                className="text-xs font-semibold uppercase tracking-wide w-20 shrink-0 mt-0.5"
+                style={{ color: MUTED }}
               >
-                {!msg.isFromUser && (
-                  <span className="text-xs retro-text-amber block mb-1">Assistant</span>
-                )}
-                <p className="text-lg whitespace-pre-wrap">{msg.content}</p>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="typing-indicator">
-                <div className="typing-dot"></div>
-                <div className="typing-dot"></div>
-                <div className="typing-dot"></div>
-              </div>
-            )}
+                {label}
+              </span>
+              <span className="text-sm" style={{ color: TEXT }}>{value}</span>
+            </div>
+          ))}
+          <div className="flex gap-4 items-start">
+            <span className="text-xs font-semibold uppercase tracking-wide w-20 shrink-0 mt-1" style={{ color: MUTED }}>
+              Traits
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {extracted.traits.map(t => (
+                <span
+                  key={t}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium"
+                  style={{ background: `${ACCENT}12`, color: ACCENT }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
           </div>
-
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && sendMessage()}
-              className="retro-input flex-1"
-              placeholder="Décris ton personnage..."
-              disabled={isLoading}
-            />
-            <button onClick={sendMessage} className="retro-btn" disabled={!input.trim() || isLoading}>
-              Envoyer
-            </button>
+          <div className="flex gap-4 items-start">
+            <span className="text-xs font-semibold uppercase tracking-wide w-20 shrink-0 mt-1" style={{ color: MUTED }}>
+              Intérêts
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {extracted.interests.map(i => (
+                <span
+                  key={i}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium"
+                  style={{ background: `${PINK}12`, color: PINK }}
+                >
+                  {i}
+                </span>
+              ))}
+            </div>
           </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={savePersona}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+            style={{ background: ACCENT }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
+            onMouseLeave={e => (e.currentTarget.style.background = ACCENT)}
+          >
+            Sauvegarder le personnage
+          </button>
+          <button
+            onClick={() => setExtracted(null)}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium"
+            style={{ background: PANEL, color: TEXT }}
+          >
+            Modifier
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-          {canFinish ? (
-            <button
-              onClick={finishCreation}
-              className="retro-btn retro-btn-magenta w-full"
-              disabled={isExtracting}
-            >
-              {isExtracting ? 'Génération du personnage...' : "J'ai terminé — Créer le personnage"}
-            </button>
+  // ── Chat UI ──────────────────────────────────────────────────────────────
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+      {/* Chat messages */}
+      <div
+        ref={chatRef}
+        className="px-5 py-5 space-y-5"
+        style={{ height: '400px', overflowY: 'auto', background: BG }}
+      >
+        {messages.map(msg =>
+          msg.isFromUser ? (
+            <div key={msg.id} className="flex justify-end">
+              <div
+                className="max-w-sm px-4 py-2.5 text-sm leading-relaxed text-white"
+                style={{ background: ACCENT, borderRadius: '18px 18px 4px 18px' }}
+              >
+                {msg.content}
+              </div>
+            </div>
           ) : (
-            <p className="text-sm retro-text-amber text-center opacity-70">
-              Continue la conversation — le bouton de finalisation apparaîtra bientôt.
-            </p>
-          )}
-        </RetroContainer>
-      )}
-    </>
+            <div key={msg.id} className="flex gap-3">
+              <div
+                className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold text-white mt-0.5"
+                style={{ background: ACCENT }}
+              >
+                A
+              </div>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <p className="text-xs font-semibold mb-1.5" style={{ color: MUTED }}>Assistant</p>
+                <p className="text-sm leading-relaxed" style={{ color: TEXT }}>{msg.content}</p>
+              </div>
+            </div>
+          )
+        )}
+        {isLoading && (
+          <div className="flex gap-3">
+            <div
+              className="w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold text-white"
+              style={{ background: ACCENT }}
+            >
+              A
+            </div>
+            <div className="flex items-center gap-1.5 pt-2">
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input area */}
+      <div className="p-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text"
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && sendMessage()}
+            placeholder="Décris ton personnage..."
+            disabled={isLoading}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+            style={{
+              background: PANEL,
+              border: `1px solid ${BORDER}`,
+              color: TEXT,
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+            onFocus={e => (e.currentTarget.style.borderColor = ACCENT)}
+            onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || isLoading}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-opacity disabled:opacity-40"
+            style={{ background: ACCENT }}
+          >
+            Envoyer
+          </button>
+        </div>
+
+        {canFinish ? (
+          <button
+            onClick={finishCreation}
+            disabled={isExtracting}
+            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+            style={{ background: TEXT }}
+          >
+            {isExtracting ? 'Génération en cours…' : "J'ai terminé — Créer le personnage"}
+          </button>
+        ) : (
+          <p className="text-xs text-center" style={{ color: MUTED }}>
+            Continue la conversation — le bouton de finalisation apparaît après 5 échanges.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
-// ─── Manual form creator ────────────────────────────────────────────────────
+// ─── Manual form creator ──────────────────────────────────────────────────────
 
 function ManualCreator({
   classId,
@@ -400,58 +506,84 @@ function ManualCreator({
     }
   };
 
+  const fieldStyle: CSSProperties = {
+    background: PANEL,
+    border: `1px solid ${BORDER}`,
+    color: TEXT,
+    borderRadius: '12px',
+    padding: '10px 14px',
+    fontSize: '14px',
+    outline: 'none',
+    width: '100%',
+    fontFamily: 'Inter, system-ui, sans-serif',
+    transition: 'border-color 0.15s',
+  };
+
+  const chipStyle = (active: boolean, activeColor: string) => ({
+    background: active ? activeColor : 'transparent',
+    color: active ? 'white' : TEXT,
+    border: `1px solid ${active ? activeColor : BORDER}`,
+    borderRadius: '999px',
+    padding: '6px 14px',
+    fontSize: '12px',
+    fontWeight: 500 as const,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    fontFamily: 'Inter, system-ui, sans-serif',
+  });
+
   return (
-    <RetroContainer title="CREATION MANUELLE">
+    <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block mb-2 text-lg">{'>'} Prénom :</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Prénom</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="retro-input"
+              style={fieldStyle}
               placeholder="Ex: Naïma, Lucas, Chloé..."
               required
+              onFocus={e => (e.currentTarget.style.borderColor = ACCENT)}
+              onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
             />
           </div>
           <div>
-            <label className="block mb-2 text-lg">{'>'} Âge (14-19) :</label>
+            <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Âge (14–19)</label>
             <input
               type="number"
               value={age}
               onChange={e => setAge(parseInt(e.target.value))}
-              className="retro-input"
+              style={fieldStyle}
               min={14}
               max={19}
+              onFocus={e => (e.currentTarget.style.borderColor = ACCENT)}
+              onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
             />
           </div>
         </div>
 
         <div>
-          <label className="block mb-2 text-lg">{'>'} Description :</label>
+          <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Description</label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            className="retro-textarea"
+            style={{ ...fieldStyle, minHeight: '80px', resize: 'none' } as CSSProperties}
             placeholder="Ex: Lycéen en première, passionné de musique..."
+            onFocus={e => (e.currentTarget.style.borderColor = ACCENT)}
+            onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
           />
         </div>
 
         <div>
-          <label className="block mb-2 text-lg">
-            {'>'} Traits de caractère ({traits.length} sélectionnés) :
-          </label>
+          <div className="flex items-baseline gap-2 mb-3">
+            <label className="text-sm font-medium" style={{ color: TEXT }}>Traits de caractère</label>
+            {traits.length > 0 && <span className="text-xs" style={{ color: MUTED }}>{traits.length} sélectionnés</span>}
+          </div>
           <div className="flex flex-wrap gap-2 mb-3">
             {TRAIT_SUGGESTIONS.map(trait => (
-              <button
-                key={trait}
-                type="button"
-                onClick={() => toggleTrait(trait)}
-                className={`retro-badge cursor-pointer transition-all ${
-                  traits.includes(trait) ? 'bg-[#00ff41] text-black' : 'hover:border-[#00ff41]'
-                }`}
-              >
+              <button key={trait} type="button" onClick={() => toggleTrait(trait)} style={chipStyle(traits.includes(trait), ACCENT)}>
                 {trait}
               </button>
             ))}
@@ -461,39 +593,31 @@ function ManualCreator({
               type="text"
               value={customTrait}
               onChange={e => setCustomTrait(e.target.value)}
-              className="retro-input flex-1"
+              style={{ ...fieldStyle, width: undefined, flex: 1 } as CSSProperties}
               placeholder="Trait personnalisé..."
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomTrait())}
+              onFocus={e => (e.currentTarget.style.borderColor = ACCENT)}
+              onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
             />
-            <button type="button" onClick={addCustomTrait} className="retro-btn">+</button>
+            <button
+              type="button"
+              onClick={addCustomTrait}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium text-white"
+              style={{ background: ACCENT }}
+            >
+              +
+            </button>
           </div>
-          {traits.filter(t => !TRAIT_SUGGESTIONS.includes(t)).length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {traits.filter(t => !TRAIT_SUGGESTIONS.includes(t)).map(trait => (
-                <span key={trait} className="retro-badge bg-[#00ff41] text-black">
-                  {trait} <button type="button" onClick={() => toggleTrait(trait)}>×</button>
-                </span>
-              ))}
-            </div>
-          )}
         </div>
 
         <div>
-          <label className="block mb-2 text-lg">
-            {'>'} Centres d'intérêt ({interests.length} sélectionnés) :
-          </label>
+          <div className="flex items-baseline gap-2 mb-3">
+            <label className="text-sm font-medium" style={{ color: TEXT }}>Centres d'intérêt</label>
+            {interests.length > 0 && <span className="text-xs" style={{ color: MUTED }}>{interests.length} sélectionnés</span>}
+          </div>
           <div className="flex flex-wrap gap-2 mb-3">
             {INTEREST_SUGGESTIONS.map(interest => (
-              <button
-                key={interest}
-                type="button"
-                onClick={() => toggleInterest(interest)}
-                className={`retro-badge cursor-pointer transition-all ${
-                  interests.includes(interest)
-                    ? 'bg-[#ff00ff] text-black'
-                    : 'retro-text-magenta hover:border-[#ff00ff]'
-                }`}
-              >
+              <button key={interest} type="button" onClick={() => toggleInterest(interest)} style={chipStyle(interests.includes(interest), PINK)}>
                 {interest}
               </button>
             ))}
@@ -503,28 +627,28 @@ function ManualCreator({
               type="text"
               value={customInterest}
               onChange={e => setCustomInterest(e.target.value)}
-              className="retro-input flex-1"
+              style={{ ...fieldStyle, width: undefined, flex: 1 } as CSSProperties}
               placeholder="Intérêt personnalisé..."
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCustomInterest())}
+              onFocus={e => (e.currentTarget.style.borderColor = PINK)}
+              onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
             />
-            <button type="button" onClick={addCustomInterest} className="retro-btn retro-btn-magenta">+</button>
+            <button
+              type="button"
+              onClick={addCustomInterest}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium text-white"
+              style={{ background: PINK }}
+            >
+              +
+            </button>
           </div>
         </div>
 
         <div>
-          <label className="block mb-2 text-lg">{'>'} Style de langage :</label>
+          <label className="block text-sm font-medium mb-3" style={{ color: TEXT }}>Style de langage</label>
           <div className="flex flex-wrap gap-2 mb-3">
             {STYLE_SUGGESTIONS.map(style => (
-              <button
-                key={style}
-                type="button"
-                onClick={() => setSpeakingStyle(style)}
-                className={`retro-badge cursor-pointer transition-all text-sm ${
-                  speakingStyle === style
-                    ? 'bg-[#00ffff] text-black'
-                    : 'retro-text-cyan hover:border-[#00ffff]'
-                }`}
-              >
+              <button key={style} type="button" onClick={() => setSpeakingStyle(style)} style={chipStyle(speakingStyle === style, '#0891b2')}>
                 {style}
               </button>
             ))}
@@ -532,16 +656,18 @@ function ManualCreator({
           <textarea
             value={speakingStyle}
             onChange={e => setSpeakingStyle(e.target.value)}
-            className="retro-textarea"
-            placeholder="Décrivez comment ce personnage s'exprime..."
+            style={{ ...fieldStyle, minHeight: '70px', resize: 'none' } as CSSProperties}
+            placeholder="Décris comment ce personnage s'exprime..."
+            onFocus={e => (e.currentTarget.style.borderColor = ACCENT)}
+            onBlur={e => (e.currentTarget.style.borderColor = BORDER)}
           />
         </div>
 
         {name && (
-          <div className="retro-card retro-border-amber">
-            <p className="retro-text-amber mb-2">Aperçu :</p>
-            <p className="text-lg">
-              "{name}, {age} ans. {description}
+          <div className="rounded-xl p-4" style={{ background: PANEL }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: MUTED }}>Aperçu</p>
+            <p className="text-sm leading-relaxed" style={{ color: TEXT }}>
+              "{name}, {age} ans.{description && ` ${description}`}
               {traits.length > 0 && ` Personnalité : ${traits.join(', ')}.`}
               {interests.length > 0 && ` Passions : ${interests.join(', ')}.`}
               {speakingStyle && ` Style : ${speakingStyle}.`}"
@@ -549,46 +675,80 @@ function ManualCreator({
           </div>
         )}
 
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            className="retro-btn flex-1"
-            disabled={!name.trim() || traits.length === 0 || interests.length === 0}
-          >
-            Créer le personnage
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={!name.trim() || traits.length === 0 || interests.length === 0}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ background: ACCENT }}
+          onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.background = '#4f46e5'; }}
+          onMouseLeave={e => (e.currentTarget.style.background = ACCENT)}
+        >
+          Créer le personnage
+        </button>
       </form>
-    </RetroContainer>
+    </div>
   );
 }
 
-// ─── Persona card ───────────────────────────────────────────────────────────
+// ─── Persona card ─────────────────────────────────────────────────────────────
 
 function PersonaCard({ persona, onDelete }: { persona: Persona; onDelete?: () => void }) {
   return (
-    <div className="retro-card">
-      <div className="flex justify-between items-start">
+    <div
+      className="rounded-2xl p-5"
+      style={{ background: CARD, border: `1px solid ${BORDER}` }}
+    >
+      <div className="flex justify-between items-start mb-3">
         <div>
-          <h3 className="text-2xl glow-text">{persona.name}, {persona.age} ans</h3>
-          <p className="retro-text-amber mt-2">{persona.description}</p>
+          <h3 className="text-base font-bold" style={{ color: TEXT }}>
+            {persona.name}, {persona.age} ans
+          </h3>
+          {persona.description && (
+            <p className="text-sm mt-0.5" style={{ color: MUTED }}>{persona.description}</p>
+          )}
         </div>
         {onDelete && (
-          <button onClick={onDelete} className="retro-btn retro-btn-amber text-sm">×</button>
+          <button
+            onClick={onDelete}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-sm transition-colors"
+            style={{ color: MUTED, background: PANEL }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+            onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+          >
+            ×
+          </button>
         )}
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {persona.traits.map(trait => (
-          <span key={trait} className="retro-badge text-sm">{trait}</span>
-        ))}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {persona.interests.map(interest => (
-          <span key={interest} className="retro-badge retro-text-magenta text-sm">{interest}</span>
-        ))}
-      </div>
+      {persona.traits.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {persona.traits.map(trait => (
+            <span
+              key={trait}
+              className="px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ background: `${ACCENT}12`, color: ACCENT }}
+            >
+              {trait}
+            </span>
+          ))}
+        </div>
+      )}
+      {persona.interests.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {persona.interests.map(interest => (
+            <span
+              key={interest}
+              className="px-2.5 py-1 rounded-full text-xs font-medium"
+              style={{ background: `${PINK}12`, color: PINK }}
+            >
+              {interest}
+            </span>
+          ))}
+        </div>
+      )}
       {persona.speakingStyle && (
-        <p className="mt-3 text-sm retro-text-cyan">Style : {persona.speakingStyle}</p>
+        <p className="text-xs mt-2" style={{ color: MUTED }}>
+          <span style={{ fontWeight: 500 }}>Style :</span> {persona.speakingStyle}
+        </p>
       )}
     </div>
   );
