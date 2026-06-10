@@ -90,6 +90,9 @@ export function PersonaPage() {
     setEditingId(null);
   };
 
+  const MAX_PERSONAS = 2;
+  const atLimit = myPersonas.length >= MAX_PERSONAS;
+
   const TABS = [
     { id: 'chatbot' as Tab, label: 'Chatbot' },
     { id: 'manual' as Tab, label: 'Formulaire' },
@@ -117,22 +120,35 @@ export function PersonaPage() {
           <h1 className="text-xl font-bold" style={{ color: TEXT }}>Création de personnage</h1>
         </div>
 
+        {/* Limit banner */}
+        {atLimit && (
+          <div className="mb-5 px-4 py-3 rounded-xl text-sm" style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047' }}>
+            Tu as atteint la limite de {MAX_PERSONAS} personnages. Supprime un personnage existant pour en créer un nouveau.
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ background: PANEL }}>
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              style={{
-                background: tab === t.id ? CARD : 'transparent',
-                color: tab === t.id ? TEXT : MUTED,
-                boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+          {TABS.map(t => {
+            const isCreationTab = t.id === 'chatbot' || t.id === 'manual';
+            const disabled = isCreationTab && atLimit;
+            return (
+              <button
+                key={t.id}
+                onClick={() => !disabled && setTab(t.id)}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: tab === t.id ? CARD : 'transparent',
+                  color: disabled ? MUTED : tab === t.id ? TEXT : MUTED,
+                  boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  opacity: disabled ? 0.4 : 1,
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
 
         {tab === 'chatbot' && (
