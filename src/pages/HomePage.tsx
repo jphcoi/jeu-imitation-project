@@ -121,6 +121,7 @@ export function HomePage() {
               "L'un est un humain, l'autre est une IA qui incarne un personnage fictif créé par vos camarades d'une autre classe.",
               "Votre mission : déterminer lequel est l'IA avant la fin du temps imparti.",
               "+2 points pour une bonne détection. +1 point bonus si votre justification dépasse 50 caractères.",
+              "Bonus créateur : si l'IA que vous avez créée déjoue 3 enquêteurs de suite, vous gagnez +2 points bonus.",
             ].map((text, i) => (
               <div key={i} className="flex gap-4">
                 <span
