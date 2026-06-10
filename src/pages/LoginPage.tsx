@@ -15,15 +15,24 @@ export function LoginPage() {
   const [schoolId, setSchoolId] = useState('');
   const [classId, setClassId] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [teacherCode, setTeacherCode] = useState('');
+  const [codeError, setCodeError] = useState(false);
   const { login } = useGame();
   const navigate = useNavigate();
 
+  // If VITE_TEACHER_CODE is set, validate against it; otherwise accept any non-empty code
+  const REQUIRED_CODE = import.meta.env.VITE_TEACHER_CODE as string | undefined;
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (pseudo.trim()) {
-      login(pseudo.trim(), role, classId.trim() || undefined, schoolId.trim() || undefined);
-      navigate(role === 'student' ? '/' : '/dashboard');
+    if (!pseudo.trim()) return;
+    if (role === 'teacher') {
+      if (!teacherCode.trim()) { setCodeError(true); return; }
+      if (REQUIRED_CODE && teacherCode.trim() !== REQUIRED_CODE) { setCodeError(true); return; }
     }
+    setCodeError(false);
+    login(pseudo.trim(), role, classId.trim() || undefined, schoolId.trim() || undefined);
+    navigate(role === 'student' ? '/' : '/dashboard');
   };
 
   return (
@@ -108,9 +117,30 @@ export function LoginPage() {
               </div>
             </div>
 
+            {role === 'teacher' && (
+              <div>
+                <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>
+                  Code d'accès enseignant
+                </label>
+                <input
+                  type="password"
+                  value={teacherCode}
+                  onChange={e => { setTeacherCode(e.target.value); setCodeError(false); }}
+                  className="retro-input"
+                  placeholder="Entrez le code..."
+                  autoFocus
+                />
+                {codeError && (
+                  <p className="mt-1.5 text-xs" style={{ color: '#b91c1c' }}>
+                    Code incorrect. Contactez l'administrateur.
+                  </p>
+                )}
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={!pseudo.trim()}
+              disabled={!pseudo.trim() || (role === 'teacher' && !teacherCode.trim())}
               className="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white transition-all mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ background: ACCENT }}
               onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.background = '#4f46e5'; }}
