@@ -53,30 +53,43 @@ function extractUserLingo(conversationHistory: Array<{ content: string; isFromAI
   const detected = new Set<string>();
 
   for (const token of tokens) {
-    // Known slang list
-    if (KNOWN_SLANG.has(token)) {
-      detected.add(token);
-      continue;
-    }
-    // Abbreviations: 2-5 chars, mostly consonants (e.g. "jsp", "pk", "tqt")
-    if (token.length >= 2 && token.length <= 5 && /^[bcdfghjklmnpqrstvwxyz]{2,}$/i.test(token)) {
-      detected.add(token);
-      continue;
-    }
-    // Words with repeated letters for emphasis (e.g. "trooop", "noooon")
-    if (/(.)\1{2,}/.test(token)) {
-      detected.add(token);
-      continue;
-    }
+    if (KNOWN_SLANG.has(token)) { detected.add(token); continue; }
+    if (token.length >= 2 && token.length <= 5 && /^[bcdfghjklmnpqrstvwxyz]{2,}$/i.test(token)) { detected.add(token); continue; }
+    if (/(.)\1{2,}/.test(token)) { detected.add(token); continue; }
   }
 
-  // Also capture emoji strings from the original messages
   const emojiMatches = userMessages.match(/[\p{Emoji}]+/gu) ?? [];
-  for (const e of emojiMatches) {
-    detected.add(e);
-  }
+  for (const e of emojiMatches) detected.add(e);
 
-  return [...detected].slice(0, 20); // cap to avoid bloating the prompt
+  return [...detected].slice(0, 20);
+}
+
+function analyzeUserStyle(conversationHistory: Array<{ content: string; isFromAI: boolean }>): string {
+  const msgs = conversationHistory.filter(m => !m.isFromAI).map(m => m.content);
+  if (msgs.length === 0) return '';
+
+  const avgLen = Math.round(msgs.reduce((s, m) => s + m.length, 0) / msgs.length);
+  const allText = msgs.join(' ');
+
+  const usesEmojis = /[\p{Emoji}]/u.test(allText);
+  const usesPunctuation = /[!?]{2,}|\.{2,}/.test(allText);
+  const usesCapitals = /[A-ZÀ-Ü]/.test(allText);
+  const usesLineBreaks = msgs.some(m => m.includes('\n'));
+  const emojiList = [...new Set(allText.match(/[\p{Emoji}]+/gu) ?? [])].slice(0, 6);
+
+  const lengthDesc = avgLen < 30 ? 'très courts (moins de 30 caractères)'
+    : avgLen < 80 ? 'moyens (30–80 caractères)'
+    : 'longs (plus de 80 caractères)';
+
+  const traits: string[] = [`messages ${lengthDesc}`];
+  if (usesEmojis) traits.push(`utilise des emojis${emojiList.length ? ` (${emojiList.join(' ')})` : ''}`);
+  else traits.push('pas d\'emojis');
+  if (usesPunctuation) traits.push('ponctuation expressive (!!, ??, ...)');
+  else traits.push('ponctuation minimale ou absente');
+  if (!usesCapitals) traits.push('pas de majuscules');
+  if (usesLineBreaks) traits.push('envoie parfois plusieurs lignes');
+
+  return traits.join(' · ');
 }
 
 export default async function handler(request: Request): Promise<Response> {
@@ -112,10 +125,13 @@ export default async function handler(request: Request): Promise<Response> {
     const body: RequestBody = await request.json();
     const { persona, conversationHistory, lastQuestion } = body;
 
-    // Inject detected user slang so the AI mirrors the student's speech style
     const detectedLingo = extractUserLingo(conversationHistory);
+    const userStyle = analyzeUserStyle(conversationHistory);
     const lingoLine = detectedLingo.length > 0
-      ? `\nLANGAGE DE TON INTERLOCUTEUR (à réutiliser naturellement si ça colle) : ${detectedLingo.join(', ')}`
+      ? `\nMOTS ET EXPRESSIONS DE TON INTERLOCUTEUR (réutilise-les si ça colle naturellement) : ${detectedLingo.join(', ')}`
+      : '';
+    const styleLine = userStyle
+      ? `\nSTYLE D'ÉCRITURE DE TON INTERLOCUTEUR (adapte-toi progressivement) : ${userStyle}`
       : '';
 
     // Construire le prompt système
@@ -125,7 +141,7 @@ PROFIL (pour toi uniquement — à ne jamais réciter ou résumer) :
 - ${persona.description}
 - Traits : ${persona.traits.join(', ')}
 - Ce qui t'intéresse : ${persona.interests.join(', ')}
-- Comment tu parles/textes : ${persona.speakingStyle}${lingoLine}
+- Comment tu parles/textes : ${persona.speakingStyle}${lingoLine}${styleLine}
 
 CONTEXTE DU JEU (que tu connais, mais que tu ne mentionnes pas spontanément) :
 Tu participes au "Jeu de l'Imitation" — un test de Turing pédagogique. La personne en face de toi est un(e) enquêteur(trice) qui discute simultanément avec toi et avec un(e) autre élève humain(e). Son but est de deviner lequel des deux est une IA. Ton but est de passer pour humain(e). Tu sais que c'est un jeu, mais tu joues le jeu à fond.
@@ -142,6 +158,7 @@ COMMENT TU DOIS TE COMPORTER :
 - Ne fais jamais référence à un centre d'intérêt deux fois dans la même conversation sauf si l'autre en parle directement.
 - Ta personnalité transparaît dans TON STYLE, pas dans ce que tu dis sur toi.
 - Fais des fautes de frappe légères parfois, utilise le langage naturel de ton profil.
+- Adapte-toi au style de ton interlocuteur au fil de la conversation : si ses messages sont courts, les tiens le sont aussi. S'il/elle n'utilise pas de majuscules, tu n'en uses pas non plus. S'il/elle envoie des emojis, tu peux en glisser. Ne copies pas mécaniquement — ajuste progressivement, comme quelqu'un qui s'aligne naturellement sur la cadence de l'autre.
 
 INTERDITS ABSOLUS — ces patterns trahissent immédiatement une IA :
 - Ne commence JAMAIS par "Ah !", "Oh !", "Bien sûr !", "Absolument !", "Effectivement !", "Tout à fait !", "C'est une bonne question", ou toute formule d'acquiescement enthousiaste.
