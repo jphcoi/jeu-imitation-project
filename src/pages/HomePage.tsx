@@ -178,29 +178,41 @@ function StepCard({ step, title, description, to, accent, cta, urgent }: {
   return (
     <Link to={to} className="block h-full group" style={{ background: BG }}>
       <div
-        className="h-full flex flex-col justify-between p-8 transition-all"
+        className="h-full flex justify-between items-stretch transition-all"
         style={{ borderLeft: `3px solid ${urgent ? accent : 'transparent'}` }}
         onMouseEnter={e => (e.currentTarget.style.borderLeftColor = accent)}
         onMouseLeave={e => (e.currentTarget.style.borderLeftColor = urgent ? accent : 'transparent')}
       >
-        <div className="flex-1">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: accent }}>
-            Étape {step}
-          </p>
-          <h2 className="text-2xl font-bold leading-tight mb-3" style={{ color: TEXT }}>{title}</h2>
-          <p className="text-sm leading-relaxed" style={{ color: MUTED, maxWidth: '480px' }}>
-            {description}
-          </p>
+        <div className="flex flex-col justify-between p-8 flex-1">
+          <div className="flex-1">
+            <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: accent }}>
+              Étape {step}
+            </p>
+            <h2 className="text-2xl font-bold leading-tight mb-3" style={{ color: TEXT }}>{title}</h2>
+            <p className="text-sm leading-relaxed" style={{ color: MUTED, maxWidth: '480px' }}>
+              {description}
+            </p>
+          </div>
+          <div className="mt-6">
+            <span
+              className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all"
+              style={{ background: `${accent}15`, color: accent }}
+            >
+              {cta}
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </span>
+          </div>
         </div>
-        <div className="mt-6">
+
+        {/* Big step number on the right */}
+        <div className="flex items-center justify-center pr-8 select-none">
           <span
-            className="inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-full transition-all"
-            style={{ background: `${accent}15`, color: accent }}
+            className="font-bold tabular-nums leading-none"
+            style={{ fontSize: '6rem', color: `${accent}18` }}
           >
-            {cta}
-            <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+            {step}
           </span>
         </div>
       </div>
