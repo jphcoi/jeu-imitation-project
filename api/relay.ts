@@ -210,10 +210,7 @@ export default async function handler(request: Request): Promise<Response> {
         if (qRaw) {
           const q = JSON.parse(qRaw) as QueueEntry;
 
-          // Only match users from different schools (or if no school info provided on either side)
-          const sameSchool = schoolId && q.schoolId && schoolId === q.schoolId;
-
-          if (q.userId !== userId && Date.now() - q.timestamp < 120_000 && !sameSchool) {
+          if (q.userId !== userId && Date.now() - q.timestamp < 120_000) {
             const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const hostIsEnqueteur = Math.random() > 0.5;
 
