@@ -2,6 +2,7 @@
 function normalise(text: string): string {
   return text
     .normalize('NFD').replace(/[̀-ͯ]/g, '') // remove accents
+    .replace(/€/g, 'e')                                // € used as e bypass (encul€)
     .replace(/(.)\1{1,}/g, '$1')                       // collapse repeated chars (connnnard → conard)
     .toLowerCase();
 }
