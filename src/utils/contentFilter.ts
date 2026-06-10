@@ -23,6 +23,8 @@ const BANNED_PATTERNS = [
   /\bb[aâ]tard\b/i,
   /\bputain\b/i,
   /\bmerde\b/i,
+  /\bpute\b/i,
+  /\bputes\b/i,
 ];
 
 export function containsBannedWords(text: string): boolean {
