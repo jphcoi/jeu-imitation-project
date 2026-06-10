@@ -31,6 +31,7 @@ export function useMultiplayer(userId: string) {
   const [receivedMessages, setReceivedMessages] = useState<ReceivedMessage[]>([]);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
+  const [relayError, setRelayError] = useState<string | null>(null);
 
   const roomCodeRef = useRef<string | null>(null);
   const lastMsgIndexRef = useRef(0);
@@ -192,10 +193,15 @@ export function useMultiplayer(userId: string) {
 
   const joinGenericQueue = useCallback(async (schoolId?: string, classId?: string) => {
     setIsSearching(true);
+    setRelayError(null);
     const data = await relay({ action: 'join-queue', userId, schoolId, classId });
 
     if (data.error) {
       console.warn('[multiplayer] queue error:', data);
+      const msg = data.error === true
+        ? (data.network ? 'Impossible de joindre le serveur (réseau).' : data.status === 503 ? 'Multijoueur non configuré — contactez votre enseignant.' : `Erreur serveur (${data.status ?? 'inconnue'}).`)
+        : String(data.error);
+      setRelayError(msg);
       setIsSearching(false);
       return;
     }
@@ -270,6 +276,7 @@ export function useMultiplayer(userId: string) {
     setReceivedMessages([]);
     setPartnerTyping(false);
     setGameEnded(false);
+    setRelayError(null);
   }, [relay]);
 
   return {
@@ -278,6 +285,7 @@ export function useMultiplayer(userId: string) {
     receivedMessages,
     partnerTyping,
     gameEnded,
+    relayError,
     createPrivateRoom,
     joinPrivateRoom,
     joinGenericQueue,

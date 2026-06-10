@@ -530,10 +530,17 @@ export function PlayPage() {
   if (phase === 'waiting') {
     const isPrivate = waitingMode === 'private';
     const progressPct = (waitingElapsed / 60) * 100;
+    const relayErr = multiplayer.relayError;
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: BG, fontFamily: 'Inter, system-ui, sans-serif' }}>
         <div className="w-full max-w-sm">
           <div className="rounded-2xl p-10 text-center" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+            {relayErr && (
+              <div className="mb-6 px-4 py-3 rounded-xl text-left text-sm" style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c' }}>
+                <p className="font-semibold mb-0.5">Multijoueur indisponible</p>
+                <p className="text-xs">{relayErr}</p>
+              </div>
+            )}
             {isPrivate ? (
               <div className="mb-6">
                 <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: MUTED }}>Code de la salle</p>
