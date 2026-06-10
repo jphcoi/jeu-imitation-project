@@ -4,6 +4,7 @@ import { useGame } from '../context/GameContext';
 import { useTimer } from '../hooks/useTimer';
 import { useMultiplayer } from '../hooks/useMultiplayer';
 import { generateAIResponse, createAIMessage } from '../utils/aiResponder';
+import { containsBannedWords } from '../utils/contentFilter';
 import type { Message, ChatSession, Persona, GameMode } from '../types';
 import type { MultiplayerRole } from '../hooks/useMultiplayer';
 import { v4 as uuidv4 } from 'uuid';
@@ -58,6 +59,7 @@ export function PlayPage() {
   const [justification, setJustification] = useState('');
   const [result, setResult] = useState<{ correct: boolean; points: number } | null>(null);
 
+  const [bannedWordWarning, setBannedWordWarning] = useState<string | null>(null);
   const [role, setRole] = useState<'enqueteur' | 'enquete' | null>(null);
   const [enqueteMessages, setEnqueteMessages] = useState<Message[]>([]);
   const [enqueteInput, setEnqueteInput] = useState('');
@@ -264,8 +266,14 @@ export function PlayPage() {
 
   // ── Send messages ─────────────────────────────────────────────────────────
 
+  const showBannedWarning = () => {
+    setBannedWordWarning('Message non envoyé — langage inapproprié.');
+    setTimeout(() => setBannedWordWarning(null), 3000);
+  };
+
   const sendMessageA = async () => {
     if (!inputA.trim() || !session) return;
+    if (containsBannedWords(inputA)) { showBannedWarning(); setInputA(''); return; }
     const userMessage: Message = { id: uuidv4(), content: inputA.trim(), senderId: currentUser?.id || '', timestamp: new Date(), isFromAI: false };
     setMessagesA(prev => [...prev, userMessage]);
     const question = inputA.trim();
@@ -291,6 +299,7 @@ export function PlayPage() {
 
   const sendMessageB = async () => {
     if (!inputB.trim() || !session) return;
+    if (containsBannedWords(inputB)) { showBannedWarning(); setInputB(''); return; }
     const userMessage: Message = { id: uuidv4(), content: inputB.trim(), senderId: currentUser?.id || '', timestamp: new Date(), isFromAI: false };
     setMessagesB(prev => [...prev, userMessage]);
     const question = inputB.trim();
@@ -316,6 +325,7 @@ export function PlayPage() {
 
   const sendEnqueteMessage = () => {
     if (!enqueteInput.trim()) return;
+    if (containsBannedWords(enqueteInput)) { showBannedWarning(); setEnqueteInput(''); return; }
     const content = enqueteInput.trim();
     setEnqueteMessages(prev => [...prev, { id: uuidv4(), content, senderId: currentUser?.id || 'enquete', timestamp: new Date(), isFromAI: false }]);
     setEnqueteInput('');
@@ -623,6 +633,11 @@ export function PlayPage() {
               )}
             </div>
             <div className="p-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+              {bannedWordWarning && (
+                <div className="mb-2 px-3 py-1.5 rounded-lg text-xs text-center" style={{ background: '#fee2e2', color: '#b91c1c' }}>
+                  {bannedWordWarning}
+                </div>
+              )}
               {isGameOver ? (
                 <p className="text-sm text-center" style={{ color: MUTED }}>La conversation est terminée.</p>
               ) : (
@@ -681,6 +696,11 @@ export function PlayPage() {
             </button>
           </div>
 
+          {bannedWordWarning && (
+            <div className="mb-3 px-4 py-2 rounded-lg text-sm text-center" style={{ background: '#fee2e2', color: '#b91c1c' }}>
+              {bannedWordWarning}
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChatPanel
               label="Interlocuteur A"
