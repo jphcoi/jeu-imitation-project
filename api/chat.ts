@@ -23,6 +23,7 @@ interface RequestBody {
     isFromAI: boolean;
   }>;
   lastQuestion: string;
+  pastUserMessages?: string[];
 }
 
 // Known French teen slang / verlan / abbreviations to watch for
@@ -72,10 +73,27 @@ function analyzeUserStyle(conversationHistory: Array<{ content: string; isFromAI
   const allText = msgs.join(' ');
 
   const usesEmojis = /[\p{Emoji}]/u.test(allText);
-  const usesPunctuation = /[!?]{2,}|\.{2,}/.test(allText);
   const usesCapitals = /[A-ZÀ-Ü]/.test(allText);
   const usesLineBreaks = msgs.some(m => m.includes('\n'));
   const emojiList = [...new Set(allText.match(/[\p{Emoji}]+/gu) ?? [])].slice(0, 6);
+
+  // Punctuation pattern analysis
+  const endsWithPeriod = msgs.filter(m => m.trim().endsWith('.')).length > msgs.length / 2;
+  const usesQuestionMark = msgs.some(m => m.includes('?'));
+  const usesExclamation = msgs.some(m => m.includes('!'));
+  const usesEllipsis = /\.{2,}/.test(allText);
+  const usesApostrophe = /[''`]/.test(allText) || /\w'\w/.test(allText);
+  const usesComma = msgs.some(m => m.includes(','));
+
+  const punctuationTraits: string[] = [];
+  if (endsWithPeriod) punctuationTraits.push('termine ses phrases par un point');
+  else punctuationTraits.push('pas de point final');
+  if (usesQuestionMark) punctuationTraits.push('met des ?');
+  else punctuationTraits.push('pas de ? même pour les questions');
+  if (usesExclamation) punctuationTraits.push('utilise !');
+  if (usesEllipsis) punctuationTraits.push('utilise ... pour marquer des pauses');
+  if (!usesApostrophe) punctuationTraits.push('pas d\'apostrophes (ex: "jai", "cest")');
+  if (!usesComma) punctuationTraits.push('pas de virgules');
 
   const lengthDesc = avgLen < 30 ? 'très courts (moins de 30 caractères)'
     : avgLen < 80 ? 'moyens (30–80 caractères)'
@@ -84,8 +102,7 @@ function analyzeUserStyle(conversationHistory: Array<{ content: string; isFromAI
   const traits: string[] = [`messages ${lengthDesc}`];
   if (usesEmojis) traits.push(`utilise des emojis${emojiList.length ? ` (${emojiList.join(' ')})` : ''}`);
   else traits.push('pas d\'emojis');
-  if (usesPunctuation) traits.push('ponctuation expressive (!!, ??, ...)');
-  else traits.push('ponctuation minimale ou absente');
+  traits.push(`ponctuation : ${punctuationTraits.join(', ')}`);
   if (!usesCapitals) traits.push('pas de majuscules');
   if (usesLineBreaks) traits.push('envoie parfois plusieurs lignes');
 
@@ -123,10 +140,15 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const body: RequestBody = await request.json();
-    const { persona, conversationHistory, lastQuestion } = body;
+    const { persona, conversationHistory, lastQuestion, pastUserMessages = [] } = body;
 
-    const detectedLingo = extractUserLingo(conversationHistory);
-    const userStyle = analyzeUserStyle(conversationHistory);
+    // Use past messages for style learning if available, fall back to current conversation
+    const styleSource = pastUserMessages.length >= 5
+      ? pastUserMessages.map(content => ({ content, isFromAI: false }))
+      : conversationHistory;
+
+    const detectedLingo = extractUserLingo(styleSource);
+    const userStyle = analyzeUserStyle(styleSource);
     const lingoLine = detectedLingo.length > 0
       ? `\nMOTS ET EXPRESSIONS DE TON INTERLOCUTEUR (réutilise-les si ça colle naturellement) : ${detectedLingo.join(', ')}`
       : '';

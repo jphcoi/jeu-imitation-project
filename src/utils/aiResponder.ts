@@ -139,7 +139,8 @@ async function generateFallbackResponse(persona: Persona, lastQuestion: string):
 async function generateAPIResponse(
   persona: Persona,
   conversationHistory: Message[],
-  lastQuestion: string
+  lastQuestion: string,
+  pastUserMessages: string[] = []
 ): Promise<{ response: string; followUp: string | null }> {
   console.log('🔄 Appel API:', API_URL);
 
@@ -162,6 +163,7 @@ async function generateAPIResponse(
         isFromAI: m.isFromAI,
       })),
       lastQuestion,
+      pastUserMessages,
     }),
   });
 
@@ -183,10 +185,11 @@ async function generateAPIResponse(
 export async function generateAIResponse(
   persona: Persona,
   conversationHistory: Message[],
-  lastQuestion: string
+  lastQuestion: string,
+  pastUserMessages: string[] = []
 ): Promise<{ response: string; followUp: string | null }> {
   try {
-    const result = await generateAPIResponse(persona, conversationHistory, lastQuestion);
+    const result = await generateAPIResponse(persona, conversationHistory, lastQuestion, pastUserMessages);
     console.log('✓ Réponse générée par LLM');
     return result;
   } catch (error) {

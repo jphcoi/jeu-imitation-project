@@ -32,7 +32,15 @@ function computeTypingDelay(responseText: string): number {
 
 export function PlayPage() {
   const { state, dispatch } = useGame();
-  const { currentUser, personas } = state;
+  const { currentUser, personas, sessions } = state;
+
+  // Collect past human messages from completed sessions for style learning
+  const pastUserMessages = sessions
+    .filter(s => s.status === 'completed' && s.enqueteurId === currentUser?.id)
+    .flatMap(s => [...s.messages.chatA, ...s.messages.chatB])
+    .filter(m => m.senderId === currentUser?.id && !m.isFromAI)
+    .map(m => m.content)
+    .slice(-60);
   const location = useLocation();
 
   const [phase, setPhase] = useState<GamePhase>('select');
@@ -265,7 +273,7 @@ export function PlayPage() {
     const isAI = session.aiIsInChat === 'A' || session.aiIsInChat === 'both';
     if (isAI && personaA) {
       setTypingA(true);
-      const { response, followUp } = await generateAIResponse(personaA, messagesA, question);
+      const { response, followUp } = await generateAIResponse(personaA, messagesA, question, pastUserMessages);
       await new Promise(resolve => setTimeout(resolve, computeTypingDelay(response)));
       setTypingA(false);
       setMessagesA(prev => [...prev, createAIMessage(response)]);
@@ -290,7 +298,7 @@ export function PlayPage() {
     const isAI = session.aiIsInChat === 'B' || session.aiIsInChat === 'both';
     if (isAI && personaB) {
       setTypingB(true);
-      const { response, followUp } = await generateAIResponse(personaB, messagesB, question);
+      const { response, followUp } = await generateAIResponse(personaB, messagesB, question, pastUserMessages);
       await new Promise(resolve => setTimeout(resolve, computeTypingDelay(response)));
       setTypingB(false);
       setMessagesB(prev => [...prev, createAIMessage(response)]);
