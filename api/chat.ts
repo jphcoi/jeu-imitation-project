@@ -231,7 +231,7 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
         model: 'llama-3.3-70b-versatile',
         messages,
         max_tokens: 150,
-        temperature: 0.75,
+        temperature: 0.9,
         top_p: 0.95,
       }),
     });
