@@ -15,6 +15,18 @@ export function DashboardPage() {
 
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'personas' | 'export'>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
+
+  const startEdit = (p: typeof personas[0]) => {
+    setEditingId(p.id);
+    setEditForm({ name: p.name, age: String(p.age), description: p.description, traits: p.traits.join(', '), interests: p.interests.join(', '), speakingStyle: p.speakingStyle });
+  };
+
+  const saveEdit = (p: typeof personas[0]) => {
+    dispatch({ type: 'UPDATE_PERSONA', payload: { ...p, name: editForm.name.trim(), age: parseInt(editForm.age) || p.age, description: editForm.description.trim(), traits: editForm.traits.split(',').map(t => t.trim()).filter(Boolean), interests: editForm.interests.split(',').map(i => i.trim()).filter(Boolean), speakingStyle: editForm.speakingStyle.trim() } });
+    setEditingId(null);
+  };
 
   const completedSessions = sessions.filter(s => s.status === 'completed');
   const myScore = enqueteurScores.find(s => s.userId === currentUser?.id);
@@ -311,15 +323,26 @@ export function DashboardPage() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => setDeletingId(persona.id)}
-                              className="text-xs px-2.5 py-1 rounded-lg transition-colors"
-                              style={{ background: PANEL, color: MUTED }}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
-                            >
-                              Supprimer
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => startEdit(persona)}
+                                className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                                style={{ background: PANEL, color: MUTED }}
+                                onMouseEnter={e => { e.currentTarget.style.background = `${ACCENT}15`; e.currentTarget.style.color = ACCENT; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                onClick={() => setDeletingId(persona.id)}
+                                className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                                style={{ background: PANEL, color: MUTED }}
+                                onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                              >
+                                Supprimer
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -334,8 +357,55 @@ export function DashboardPage() {
                           <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ background: `${PANEL}`, color: MUTED }}>{i}</span>
                         ))}
                       </div>
-                      {persona.speakingStyle && (
+                      {persona.speakingStyle && editingId !== persona.id && (
                         <p className="text-xs mt-2 italic" style={{ color: MUTED }}>"{persona.speakingStyle.slice(0, 120)}{persona.speakingStyle.length > 120 ? '…' : ''}"</p>
+                      )}
+
+                      {editingId === persona.id && (
+                        <div className="mt-4 space-y-3 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Prénom</label>
+                              <input className="retro-input text-xs" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Âge</label>
+                              <input className="retro-input text-xs" type="number" min={14} max={19} value={editForm.age} onChange={e => setEditForm(f => ({ ...f, age: e.target.value }))} />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Description</label>
+                            <textarea className="retro-input text-xs w-full resize-none" rows={2} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Traits (séparés par des virgules)</label>
+                            <input className="retro-input text-xs" value={editForm.traits} onChange={e => setEditForm(f => ({ ...f, traits: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Centres d'intérêt (séparés par des virgules)</label>
+                            <input className="retro-input text-xs" value={editForm.interests} onChange={e => setEditForm(f => ({ ...f, interests: e.target.value }))} />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Style d'expression</label>
+                            <textarea className="retro-input text-xs w-full resize-none" rows={2} value={editForm.speakingStyle} onChange={e => setEditForm(f => ({ ...f, speakingStyle: e.target.value }))} />
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => saveEdit(persona)}
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium text-white"
+                              style={{ background: ACCENT }}
+                            >
+                              Sauvegarder
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="text-xs px-3 py-1.5 rounded-lg"
+                              style={{ background: PANEL, color: MUTED }}
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
