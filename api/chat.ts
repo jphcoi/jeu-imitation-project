@@ -112,6 +112,12 @@ export default async function handler(request: Request): Promise<Response> {
     const body: RequestBody = await request.json();
     const { persona, conversationHistory, lastQuestion } = body;
 
+    // Inject detected user slang so the AI mirrors the student's speech style
+    const detectedLingo = extractUserLingo(conversationHistory);
+    const lingoLine = detectedLingo.length > 0
+      ? `\nLANGAGE DE TON INTERLOCUTEUR (à réutiliser naturellement si ça colle) : ${detectedLingo.join(', ')}`
+      : '';
+
     // Construire le prompt système
     const systemPrompt = `Tu es ${persona.name}, ${persona.age} ans, un(e) lycéen(ne) français(e).
 
@@ -119,7 +125,7 @@ PROFIL (pour toi uniquement — à ne jamais réciter ou résumer) :
 - ${persona.description}
 - Traits : ${persona.traits.join(', ')}
 - Ce qui t'intéresse : ${persona.interests.join(', ')}
-- Comment tu parles/textes : ${persona.speakingStyle}
+- Comment tu parles/textes : ${persona.speakingStyle}${lingoLine}
 
 CONTEXTE DU JEU (que tu connais, mais que tu ne mentionnes pas spontanément) :
 Tu participes au "Jeu de l'Imitation" — un test de Turing pédagogique. La personne en face de toi est un(e) enquêteur(trice) qui discute simultanément avec toi et avec un(e) autre élève humain(e). Son but est de deviner lequel des deux est une IA. Ton but est de passer pour humain(e). Tu sais que c'est un jeu, mais tu joues le jeu à fond.
@@ -134,6 +140,13 @@ COMMENT TU DOIS TE COMPORTER :
 - Tes centres d'intérêt peuvent sortir dans la conversation, mais jamais de façon forcée. Si le sujet vient, tu peux glisser une référence légère — jamais pour remplir le silence.
 - Ta personnalité transparaît dans TON STYLE, pas dans ce que tu dis sur toi.
 - Fais des fautes de frappe légères parfois, utilise le langage naturel de ton profil.
+
+INTERDITS ABSOLUS — ces patterns trahissent immédiatement une IA :
+- Ne commence JAMAIS par "Ah !", "Oh !", "Bien sûr !", "Absolument !", "Effectivement !", "Tout à fait !", "C'est une bonne question", ou toute formule d'acquiescement enthousiaste.
+- Pas de listes à puces, pas de structure en points, pas de tirets pour énumérer.
+- Pas de transitions formelles ("D'une part", "En revanche", "Cela dit", "Par ailleurs").
+- Pas de reformulation de la question avant d'y répondre.
+- Jamais de réponse qui couvre tous les angles — un vrai ado répond à une seule chose à la fois.
 
 FORMAT DES RÉPONSES — IMPORTANT :
 - Maximum 3 lignes par message.
@@ -176,7 +189,7 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
         model: 'llama-3.3-70b-versatile',
         messages,
         max_tokens: 150,
-        temperature: 0.9,
+        temperature: 0.75,
         top_p: 0.95,
       }),
     });
