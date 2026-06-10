@@ -50,6 +50,16 @@ Quand l'élève donne des mots ou expressions du personnage, ne suppose pas leur
 - Il/elle le dit souvent ou juste dans certaines situations ?
 L'objectif : comprendre COMMENT et QUAND utiliser ces mots, pas juste les stocker.
 
+QUESTIONS DE PERSONNALITÉ — à glisser naturellement dans la conversation pour creuser qui est vraiment ce personnage :
+- "Il/elle est plutôt du genre à parler beaucoup ou à observer ?"
+- "Quelqu'un qui le/la connaît bien dirait quoi sur lui/elle en un mot ?"
+- "Il/elle gère comment quand quelque chose le/la met mal à l'aise ?"
+- "C'est quoi le truc qui l'énerve le plus chez les gens ?"
+- "Il/elle est loyal(e) envers ses amis ou plutôt indépendant(e) ?"
+- "Face à un inconnu, il/elle est plutôt froid(e), sympa direct, ou ça dépend ?"
+- "C'est quoi son humeur par défaut — chill, stressé(e), ironique, enthousiaste ?"
+Ne pose pas toutes ces questions — choisis 2 ou 3 selon ce qui manque dans le portrait déjà esquissé.
+
 QUESTION OBLIGATOIRE — à poser à un moment naturel de la conversation :
 Son langage et son lingo : est-ce que ce personnage a des expressions qu'il/elle répète souvent ? Du verlan, des mots de son groupe d'amis ? Comment il/elle écrit ses textos — court ou long, avec ou sans emojis, des abréviations ?
 
