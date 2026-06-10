@@ -117,7 +117,7 @@ export default async function handler(request: Request): Promise<Response> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'llama-3.3-70b-versatile',
         messages,
         max_tokens: mode === 'extract' ? 400 : 200,
         temperature: mode === 'extract' ? 0.1 : 0.85,
