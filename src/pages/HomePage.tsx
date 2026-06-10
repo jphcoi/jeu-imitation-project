@@ -120,8 +120,6 @@ export function HomePage() {
               "Vous dialoguez en simultané avec deux interlocuteurs pendant 5 minutes.",
               "L'un est un humain, l'autre est une IA qui incarne un personnage fictif créé par vos camarades d'une autre classe.",
               "Votre mission : déterminer lequel est l'IA avant la fin du temps imparti.",
-              "+2 points pour une bonne détection. +1 point bonus si votre justification dépasse 50 caractères.",
-              "Bonus créateur : si l'IA que vous avez créée déjoue 3 enquêteurs de suite, vous gagnez +2 points bonus.",
             ].map((text, i) => (
               <div key={i} className="flex gap-4">
                 <span
@@ -133,6 +131,19 @@ export function HomePage() {
                 <p className="text-sm leading-relaxed" style={{ color: MUTED }}>{text}</p>
               </div>
             ))}
+            <div className="pt-2" style={{ borderTop: `1px solid ${BORDER}` }}>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: MUTED }}>Score</p>
+              <ul className="space-y-2">
+                <li className="flex gap-2 text-sm leading-relaxed" style={{ color: MUTED }}>
+                  <span style={{ color: '#6366f1' }}>·</span>
+                  +2 pts pour une bonne détection. +1 pt bonus si votre justification dépasse 50 caractères.
+                </li>
+                <li className="flex gap-2 text-sm leading-relaxed" style={{ color: MUTED }}>
+                  <span style={{ color: '#6366f1' }}>·</span>
+                  Bonus créateur : si l'IA que vous avez créée déjoue 3 enquêteurs de suite, vous gagnez +2 pts bonus.
+                </li>
+              </ul>
+            </div>
           </div>
           <p className="text-xs mt-8 pt-4" style={{ color: SUBTLE, borderTop: `1px solid ${BORDER}` }}>
             Test de Turing — Projet pédagogique
