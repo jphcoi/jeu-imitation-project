@@ -67,8 +67,12 @@ export function PersonaPage() {
   const { currentUser, personas } = state;
 
   const [tab, setTab] = useState<Tab>('chatbot');
-  // All personas visible for now; when multiple schools go live, filter by persona.schoolId === currentUser.schoolId
-  const allPersonas = personas;
+  const [listSubTab, setListSubTab] = useState<'mine' | 'classmates'>('mine');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
+
+  const myPersonas = personas.filter(p => p.createdBy === currentUser?.id);
+  const classmatesPersonas = personas.filter(p => p.createdBy !== currentUser?.id);
 
   const deletePersona = (id: string) => {
     if (confirm('Supprimer ce personnage ?')) {
@@ -76,10 +80,20 @@ export function PersonaPage() {
     }
   };
 
+  const startEdit = (p: Persona) => {
+    setEditingId(p.id);
+    setEditForm({ name: p.name, age: String(p.age), description: p.description, traits: p.traits.join(', '), interests: p.interests.join(', '), speakingStyle: p.speakingStyle });
+  };
+
+  const saveEdit = (p: Persona) => {
+    dispatch({ type: 'UPDATE_PERSONA', payload: { ...p, name: editForm.name.trim(), age: parseInt(editForm.age) || p.age, description: editForm.description.trim(), traits: editForm.traits.split(',').map(t => t.trim()).filter(Boolean), interests: editForm.interests.split(',').map(i => i.trim()).filter(Boolean), speakingStyle: editForm.speakingStyle.trim() } });
+    setEditingId(null);
+  };
+
   const TABS = [
     { id: 'chatbot' as Tab, label: 'Chatbot' },
     { id: 'manual' as Tab, label: 'Formulaire' },
-    { id: 'list' as Tab, label: `Personnages (${allPersonas.length})` },
+    { id: 'list' as Tab, label: `Personnages (${personas.length})` },
   ];
 
   return (
@@ -139,31 +153,67 @@ export function PersonaPage() {
 
         {tab === 'list' && (
           <div>
-            {allPersonas.length === 0 ? (
-              <div
-                className="rounded-2xl p-12 text-center"
-                style={{ background: CARD, border: `1px solid ${BORDER}` }}
-              >
-                <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun personnage créé</p>
-                <p className="text-sm mb-5" style={{ color: MUTED }}>Utilise le chatbot ou le formulaire pour commencer.</p>
+            {/* Sub-tabs */}
+            <div className="flex gap-1 p-1 rounded-xl mb-5 w-fit" style={{ background: PANEL }}>
+              {([
+                { id: 'mine' as const, label: `Mes personnages (${myPersonas.length})` },
+                { id: 'classmates' as const, label: `Camarades (${classmatesPersonas.length})` },
+              ]).map(st => (
                 <button
-                  onClick={() => setTab('chatbot')}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-white"
-                  style={{ background: ACCENT }}
+                  key={st.id}
+                  onClick={() => setListSubTab(st.id)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    background: listSubTab === st.id ? CARD : 'transparent',
+                    color: listSubTab === st.id ? TEXT : MUTED,
+                    boxShadow: listSubTab === st.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  }}
                 >
-                  Créer un personnage
+                  {st.label}
                 </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {allPersonas.map(persona => (
-                  <PersonaCard
-                    key={persona.id}
-                    persona={persona}
-                    onDelete={persona.createdBy === currentUser?.id ? () => deletePersona(persona.id) : undefined}
-                  />
-                ))}
-              </div>
+              ))}
+            </div>
+
+            {listSubTab === 'mine' && (
+              myPersonas.length === 0 ? (
+                <div className="rounded-2xl p-12 text-center" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                  <p className="text-sm font-medium mb-2" style={{ color: TEXT }}>Aucun personnage créé</p>
+                  <p className="text-sm mb-5" style={{ color: MUTED }}>Utilise le chatbot ou le formulaire pour commencer.</p>
+                  <button onClick={() => setTab('chatbot')} className="px-5 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>
+                    Créer un personnage
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myPersonas.map(persona => (
+                    <PersonaCard
+                      key={persona.id}
+                      persona={persona}
+                      onDelete={() => deletePersona(persona.id)}
+                      onEdit={() => startEdit(persona)}
+                      isEditing={editingId === persona.id}
+                      editForm={editForm}
+                      onEditFormChange={f => setEditForm(prev => ({ ...prev, ...f }))}
+                      onSaveEdit={() => saveEdit(persona)}
+                      onCancelEdit={() => setEditingId(null)}
+                    />
+                  ))}
+                </div>
+              )
+            )}
+
+            {listSubTab === 'classmates' && (
+              classmatesPersonas.length === 0 ? (
+                <div className="rounded-2xl p-8 text-center" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                  <p className="text-sm" style={{ color: MUTED }}>Aucun personnage créé par tes camarades pour l'instant.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {classmatesPersonas.map(persona => (
+                    <PersonaCard key={persona.id} persona={persona} />
+                  ))}
+                </div>
+              )
             )}
           </div>
         )}
@@ -693,63 +743,112 @@ function ManualCreator({
 
 // ─── Persona card ─────────────────────────────────────────────────────────────
 
-function PersonaCard({ persona, onDelete }: { persona: Persona; onDelete?: () => void }) {
+function PersonaCard({
+  persona, onDelete, onEdit, isEditing, editForm, onEditFormChange, onSaveEdit, onCancelEdit,
+}: {
+  persona: Persona;
+  onDelete?: () => void;
+  onEdit?: () => void;
+  isEditing?: boolean;
+  editForm?: { name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string };
+  onEditFormChange?: (f: Partial<typeof editForm>) => void;
+  onSaveEdit?: () => void;
+  onCancelEdit?: () => void;
+}) {
   return (
-    <div
-      className="rounded-2xl p-5"
-      style={{ background: CARD, border: `1px solid ${BORDER}` }}
-    >
+    <div className="rounded-2xl p-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
       <div className="flex justify-between items-start mb-3">
         <div>
-          <h3 className="text-base font-bold" style={{ color: TEXT }}>
-            {persona.name}, {persona.age} ans
-          </h3>
-          {persona.description && (
+          <h3 className="text-base font-bold" style={{ color: TEXT }}>{persona.name}, {persona.age} ans</h3>
+          {persona.description && !isEditing && (
             <p className="text-sm mt-0.5" style={{ color: MUTED }}>{persona.description}</p>
           )}
         </div>
-        {onDelete && (
-          <button
-            onClick={onDelete}
-            className="w-7 h-7 rounded-full flex items-center justify-center text-sm transition-colors"
-            style={{ color: MUTED, background: PANEL }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-            onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
-          >
-            ×
-          </button>
+        {(onDelete || onEdit) && (
+          <div className="flex items-center gap-1">
+            {onEdit && !isEditing && (
+              <button
+                onClick={onEdit}
+                className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                style={{ background: PANEL, color: MUTED }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${ACCENT}15`; e.currentTarget.style.color = ACCENT; }}
+                onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+              >
+                Modifier
+              </button>
+            )}
+            {onDelete && !isEditing && (
+              <button
+                onClick={onDelete}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-sm transition-colors"
+                style={{ color: MUTED, background: PANEL }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+              >
+                ×
+              </button>
+            )}
+          </div>
         )}
       </div>
-      {persona.traits.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {persona.traits.map(trait => (
-            <span
-              key={trait}
-              className="px-2.5 py-1 rounded-full text-xs font-medium"
-              style={{ background: `${ACCENT}12`, color: ACCENT }}
-            >
-              {trait}
-            </span>
-          ))}
-        </div>
+
+      {!isEditing && (
+        <>
+          {persona.traits.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {persona.traits.map(trait => (
+                <span key={trait} className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: `${ACCENT}12`, color: ACCENT }}>{trait}</span>
+              ))}
+            </div>
+          )}
+          {persona.interests.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {persona.interests.map(interest => (
+                <span key={interest} className="px-2.5 py-1 rounded-full text-xs font-medium" style={{ background: `${PINK}12`, color: PINK }}>{interest}</span>
+              ))}
+            </div>
+          )}
+          {persona.speakingStyle && (
+            <p className="text-xs mt-2" style={{ color: MUTED }}>
+              <span style={{ fontWeight: 500 }}>Style :</span> {persona.speakingStyle}
+            </p>
+          )}
+        </>
       )}
-      {persona.interests.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {persona.interests.map(interest => (
-            <span
-              key={interest}
-              className="px-2.5 py-1 rounded-full text-xs font-medium"
-              style={{ background: `${PINK}12`, color: PINK }}
-            >
-              {interest}
-            </span>
-          ))}
+
+      {isEditing && editForm && onEditFormChange && onSaveEdit && onCancelEdit && (
+        <div className="space-y-3 pt-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Prénom</label>
+              <input className="retro-input text-xs" value={editForm.name} onChange={e => onEditFormChange({ name: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Âge</label>
+              <input className="retro-input text-xs" type="number" min={14} max={19} value={editForm.age} onChange={e => onEditFormChange({ age: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Description</label>
+            <textarea className="retro-input text-xs w-full resize-none" rows={2} value={editForm.description} onChange={e => onEditFormChange({ description: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Traits (séparés par des virgules)</label>
+            <input className="retro-input text-xs" value={editForm.traits} onChange={e => onEditFormChange({ traits: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Centres d'intérêt (séparés par des virgules)</label>
+            <input className="retro-input text-xs" value={editForm.interests} onChange={e => onEditFormChange({ interests: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1" style={{ color: MUTED }}>Style d'expression</label>
+            <textarea className="retro-input text-xs w-full resize-none" rows={2} value={editForm.speakingStyle} onChange={e => onEditFormChange({ speakingStyle: e.target.value })} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={onSaveEdit} className="text-xs px-3 py-1.5 rounded-lg font-medium text-white" style={{ background: ACCENT }}>Sauvegarder</button>
+            <button onClick={onCancelEdit} className="text-xs px-3 py-1.5 rounded-lg" style={{ background: PANEL, color: MUTED }}>Annuler</button>
+          </div>
         </div>
-      )}
-      {persona.speakingStyle && (
-        <p className="text-xs mt-2" style={{ color: MUTED }}>
-          <span style={{ fontWeight: 500 }}>Style :</span> {persona.speakingStyle}
-        </p>
       )}
     </div>
   );
