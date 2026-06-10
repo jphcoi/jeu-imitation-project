@@ -113,7 +113,7 @@ export function DashboardPage() {
             { label: 'Mes points', value: myScore?.totalPoints ?? 0, color: TEXT },
             { label: 'Classement', value: myRank > 0 ? `#${myRank}` : '—', color: '#d97706' },
             { label: 'Mes détections', value: myScore ? `${myScore.correctDetections}/${myScore.totalSessions}` : '—', color: '#0891b2' },
-            { label: 'Ma fiabilité', value: myScore ? `${myScore.reliabilityIndex.toFixed(0)}%` : '—', color: '#db2777' },
+            { label: 'Bonus créateur', value: myScore?.creatorBonusPoints ? `+${myScore.creatorBonusPoints}` : '—', color: '#10b981' },
           ].map(({ label, value, color }) => (
             <div key={label} className="px-6 py-5" style={{ background: CARD }}>
               <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
@@ -283,6 +283,12 @@ export function DashboardPage() {
                             <div className="text-right">
                               <p className="text-lg font-bold tabular-nums" style={{ color: '#0891b2' }}>{score.credibilityIndex.toFixed(0)}%</p>
                               <p className="text-xs" style={{ color: MUTED }}>crédibilité · {score.totalSessions} session{score.totalSessions !== 1 ? 's' : ''}</p>
+                              {score.consecutiveWins > 0 && (
+                                <p className="text-xs mt-0.5" style={{ color: '#10b981' }}>{score.consecutiveWins} victoire{score.consecutiveWins !== 1 ? 's' : ''} consécutive{score.consecutiveWins !== 1 ? 's' : ''}</p>
+                              )}
+                              {score.bonusPointsEarned > 0 && (
+                                <p className="text-xs font-semibold" style={{ color: '#10b981' }}>+{score.bonusPointsEarned} pts bonus créateur</p>
+                              )}
                             </div>
                           ) : (
                             <span className="text-xs px-2 py-1 rounded-lg" style={{ background: PANEL, color: MUTED }}>Pas encore joué</span>

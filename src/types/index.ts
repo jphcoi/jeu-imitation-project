@@ -67,6 +67,7 @@ export interface EnqueteurScore {
   totalSessions: number;
   correctDetections: number;
   bonusPoints: number;
+  creatorBonusPoints: number; // bonus earned from own personas fooling enquêteurs 3× in a row
   totalPoints: number;
   reliabilityIndex: number;
 }
@@ -78,6 +79,8 @@ export interface PersonaScore {
   totalSessions: number;
   timesDetectedAsAI: number;
   credibilityIndex: number;
+  consecutiveWins: number;       // current unbroken win streak
+  bonusPointsEarned: number;     // total bonus points this persona earned for its creator
   qualitativeNotes: string[];
 }
 

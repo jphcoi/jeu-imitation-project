@@ -27,19 +27,92 @@ const initialState: GameState = {
   personaScores: [],
 };
 
-function calculateEnqueteurScores(sessions: ChatSession[], votes: Vote[], knownUsers: User[]): EnqueteurScore[] {
+function calculatePersonaScores(sessions: ChatSession[], votes: Vote[], personas: Persona[]): PersonaScore[] {
+  const scoreMap = new Map<string, PersonaScore>();
+
+  personas.forEach(persona => {
+    scoreMap.set(persona.id, {
+      personaId: persona.id,
+      personaName: persona.name,
+      classId: persona.classId,
+      totalSessions: 0,
+      timesDetectedAsAI: 0,
+      credibilityIndex: 100,
+      consecutiveWins: 0,
+      bonusPointsEarned: 0,
+      qualitativeNotes: [],
+    });
+  });
+
+  const completedSessions = sessions
+    .filter(s => s.status === 'completed')
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  completedSessions.forEach(session => {
+    [session.personaIdA, session.personaIdB].forEach(pid => {
+      const score = scoreMap.get(pid);
+      if (score) score.totalSessions++;
+    });
+
+    const vote = votes.find(v => v.sessionId === session.id);
+    if (vote) {
+      const detectedPersonaId = vote.votedChat === 'A' ? session.personaIdA : session.personaIdB;
+      const detectedScore = scoreMap.get(detectedPersonaId);
+      if (detectedScore) detectedScore.timesDetectedAsAI++;
+    }
+
+    // Track consecutive wins for the AI persona in this session
+    if (session.aiIsInChat !== 'both' && vote) {
+      const aiPersonaId = session.aiIsInChat === 'A' ? session.personaIdA : session.personaIdB;
+      const aiScore = scoreMap.get(aiPersonaId);
+      if (aiScore) {
+        const personaWon = vote.votedChat !== session.aiIsInChat; // enquêteur got it wrong
+        if (personaWon) {
+          aiScore.consecutiveWins++;
+          if (aiScore.consecutiveWins % 3 === 0) {
+            aiScore.bonusPointsEarned += 2;
+          }
+        } else {
+          aiScore.consecutiveWins = 0;
+        }
+      }
+    }
+  });
+
+  scoreMap.forEach(score => {
+    score.credibilityIndex = score.totalSessions > 0
+      ? ((score.totalSessions - score.timesDetectedAsAI) / score.totalSessions) * 100
+      : 100;
+  });
+
+  return Array.from(scoreMap.values());
+}
+
+function buildCreatorBonusMap(personaScores: PersonaScore[], personas: Persona[]): Map<string, number> {
+  const bonusMap = new Map<string, number>();
+  personaScores.forEach(ps => {
+    if (ps.bonusPointsEarned === 0) return;
+    const persona = personas.find(p => p.id === ps.personaId);
+    if (!persona?.createdBy) return;
+    bonusMap.set(persona.createdBy, (bonusMap.get(persona.createdBy) ?? 0) + ps.bonusPointsEarned);
+  });
+  return bonusMap;
+}
+
+function calculateEnqueteurScores(
+  sessions: ChatSession[],
+  votes: Vote[],
+  knownUsers: User[],
+  creatorBonuses: Map<string, number>
+): EnqueteurScore[] {
   const scoreMap = new Map<string, EnqueteurScore>();
 
   votes.forEach(vote => {
     const session = sessions.find(s => s.id === vote.sessionId);
     if (!session || session.status !== 'completed') return;
 
-    // In 'both' mode, vote is correct if they picked either A or B (both are AI)
-    // In 'A' or 'B' mode, vote is correct if they picked the right one
     let isCorrect = false;
     if (session.aiIsInChat === 'both') {
-      // In solo mode both are AI, so the question is: did they pick the "worse" AI?
-      // For scoring, any vote is "correct" since both are AI - give points
       isCorrect = true;
     } else {
       isCorrect = vote.votedChat === session.aiIsInChat;
@@ -53,6 +126,7 @@ function calculateEnqueteurScores(sessions: ChatSession[], votes: Vote[], knownU
         totalSessions: 0,
         correctDetections: 0,
         bonusPoints: 0,
+        creatorBonusPoints: 0,
         totalPoints: 0,
         reliabilityIndex: 0,
       });
@@ -64,7 +138,6 @@ function calculateEnqueteurScores(sessions: ChatSession[], votes: Vote[], knownU
     if (isCorrect) {
       score.correctDetections++;
       score.totalPoints += 2;
-
       if (vote.justification && vote.justification.length > 50) {
         score.bonusPoints++;
         score.totalPoints++;
@@ -76,49 +149,25 @@ function calculateEnqueteurScores(sessions: ChatSession[], votes: Vote[], knownU
       : 0;
   });
 
-  return Array.from(scoreMap.values());
-}
-
-function calculatePersonaScores(sessions: ChatSession[], votes: Vote[], personas: Persona[]): PersonaScore[] {
-  const scoreMap = new Map<string, PersonaScore>();
-
-  personas.forEach(persona => {
-    scoreMap.set(persona.id, {
-      personaId: persona.id,
-      personaName: persona.name,
-      classId: persona.classId,
-      totalSessions: 0,
-      timesDetectedAsAI: 0,
-      credibilityIndex: 100,
-      qualitativeNotes: [],
-    });
-  });
-
-  sessions.forEach(session => {
-    if (session.status !== 'completed') return;
-
-    // Update both personas used in the session
-    [session.personaIdA, session.personaIdB].forEach(pid => {
-      const score = scoreMap.get(pid);
-      if (score) {
-        score.totalSessions++;
-      }
-    });
-
-    const vote = votes.find(v => v.sessionId === session.id);
-    if (vote) {
-      const detectedPersonaId = vote.votedChat === 'A' ? session.personaIdA : session.personaIdB;
-      const detectedScore = scoreMap.get(detectedPersonaId);
-      if (detectedScore) {
-        detectedScore.timesDetectedAsAI++;
-      }
+  // Add creator bonus points from personas
+  creatorBonuses.forEach((bonus, userId) => {
+    if (!scoreMap.has(userId)) {
+      const user = knownUsers.find(u => u.id === userId);
+      if (!user) return;
+      scoreMap.set(userId, {
+        userId,
+        pseudo: user.pseudo,
+        totalSessions: 0,
+        correctDetections: 0,
+        bonusPoints: 0,
+        creatorBonusPoints: 0,
+        totalPoints: 0,
+        reliabilityIndex: 0,
+      });
     }
-  });
-
-  scoreMap.forEach(score => {
-    score.credibilityIndex = score.totalSessions > 0
-      ? ((score.totalSessions - score.timesDetectedAsAI) / score.totalSessions) * 100
-      : 100;
+    const score = scoreMap.get(userId)!;
+    score.creatorBonusPoints = bonus;
+    score.totalPoints += bonus;
   });
 
   return Array.from(scoreMap.values());
@@ -170,20 +219,25 @@ function gameReducer(state: GameState, action: Action): GameState {
 
     case 'ADD_VOTE': {
       const newVotes = [...state.votes, action.payload];
+      const newPersonaScores = calculatePersonaScores(state.sessions, newVotes, state.personas);
+      const creatorBonuses = buildCreatorBonusMap(newPersonaScores, state.personas);
       return {
         ...state,
         votes: newVotes,
-        enqueteurScores: calculateEnqueteurScores(state.sessions, newVotes, state.knownUsers),
-        personaScores: calculatePersonaScores(state.sessions, newVotes, state.personas),
+        personaScores: newPersonaScores,
+        enqueteurScores: calculateEnqueteurScores(state.sessions, newVotes, state.knownUsers, creatorBonuses),
       };
     }
 
-    case 'UPDATE_SCORES':
+    case 'UPDATE_SCORES': {
+      const updatedPersonaScores = calculatePersonaScores(state.sessions, state.votes, state.personas);
+      const updatedCreatorBonuses = buildCreatorBonusMap(updatedPersonaScores, state.personas);
       return {
         ...state,
-        enqueteurScores: calculateEnqueteurScores(state.sessions, state.votes, state.knownUsers),
-        personaScores: calculatePersonaScores(state.sessions, state.votes, state.personas),
+        personaScores: updatedPersonaScores,
+        enqueteurScores: calculateEnqueteurScores(state.sessions, state.votes, state.knownUsers, updatedCreatorBonuses),
       };
+    }
 
     case 'SEED_DEFAULTS': {
       const existingDefaultIds = state.personas.filter(p => p.isDefault).map(p => p.id);

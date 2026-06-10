@@ -707,10 +707,13 @@ export function PlayPage() {
             <h2 className="text-lg font-bold mb-1" style={{ color: TEXT }}>
               {isSolo ? 'Laquelle des deux IAs vous a semblé la moins humaine ?' : "Lequel est l'IA ?"}
             </h2>
-            <p className="text-xs mb-5" style={{ color: MUTED }}>
+            <p className="text-xs mb-2" style={{ color: MUTED }}>
               {isSolo
                 ? 'Les deux interlocuteurs étaient des IAs avec des personas différents.'
                 : "L'un des deux était une IA jouant un personnage — l'autre était un vrai élève."}
+            </p>
+            <p className="text-xs mb-5 leading-relaxed" style={{ color: MUTED }}>
+              Bonne détection : <strong style={{ color: TEXT }}>+2 pts</strong> · Justification (&gt;50 car.) : <strong style={{ color: TEXT }}>+1 pt</strong> · Si l'IA trompe l'enquêteur 3× de suite, son créateur gagne <strong style={{ color: TEXT }}>+2 pts bonus</strong>.
             </p>
 
             <div className="grid grid-cols-2 gap-4 my-6">
