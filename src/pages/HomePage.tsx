@@ -140,7 +140,7 @@ export function HomePage() {
                 </li>
                 <li className="flex gap-2 text-sm leading-relaxed" style={{ color: MUTED }}>
                   <span style={{ color: '#6366f1' }}>·</span>
-                  Bonus créateur : si l'IA que vous avez créée déjoue 3 enquêteurs de suite, vous gagnez +2 pts bonus.
+                  Bonus créateur : si l'IA que vous avez créée déjoue 2 enquêteurs de suite, vous gagnez +2 pts bonus.
                 </li>
               </ul>
             </div>
