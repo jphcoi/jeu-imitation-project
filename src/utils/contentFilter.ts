@@ -67,5 +67,15 @@ const BANNED_PATTERNS = [
 
 export function containsBannedWords(text: string): boolean {
   const n = normalise(text);
-  return BANNED_PATTERNS.some(p => p.test(n));
+  if (BANNED_PATTERNS.some(p => p.test(n))) return true;
+
+  // Try replacing each * with every vowel to catch c*nnard, m*rde, enc*lé, etc.
+  if (text.includes('*')) {
+    for (const v of ['a', 'e', 'i', 'o', 'u']) {
+      const substituted = normalise(text.replace(/\*/g, v));
+      if (BANNED_PATTERNS.some(p => p.test(substituted))) return true;
+    }
+  }
+
+  return false;
 }
