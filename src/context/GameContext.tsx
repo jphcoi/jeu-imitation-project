@@ -10,6 +10,7 @@ type Action =
   | { type: 'ADD_PERSONA'; payload: Persona }
   | { type: 'UPDATE_PERSONA'; payload: Persona }
   | { type: 'DELETE_PERSONA'; payload: string }
+  | { type: 'DELETE_USER'; payload: string }
   | { type: 'ADD_SESSION'; payload: ChatSession }
   | { type: 'UPDATE_SESSION'; payload: ChatSession }
   | { type: 'ADD_VOTE'; payload: Vote }
@@ -205,6 +206,31 @@ function gameReducer(state: GameState, action: Action): GameState {
         ...state,
         personas: state.personas.filter(p => p.id !== action.payload),
       };
+
+    case 'DELETE_USER': {
+      const userId = action.payload;
+      const remainingPersonas = state.personas.filter(p => p.createdBy !== userId);
+      const remainingPersonaIds = new Set(remainingPersonas.map(p => p.id));
+      const remainingSessions = state.sessions.filter(
+        s => s.enqueteurId !== userId && remainingPersonaIds.has(s.personaIdA)
+      );
+      const remainingSessionIds = new Set(remainingSessions.map(s => s.id));
+      const remainingVotes = state.votes.filter(
+        v => v.enqueteurId !== userId && remainingSessionIds.has(v.sessionId)
+      );
+      const newPersonaScores = calculatePersonaScores(remainingSessions, remainingVotes, remainingPersonas);
+      const creatorBonuses = buildCreatorBonusMap(newPersonaScores, remainingPersonas);
+      const newKnownUsers = state.knownUsers.filter(u => u.id !== userId);
+      return {
+        ...state,
+        knownUsers: newKnownUsers,
+        personas: remainingPersonas,
+        sessions: remainingSessions,
+        votes: remainingVotes,
+        personaScores: newPersonaScores,
+        enqueteurScores: calculateEnqueteurScores(remainingSessions, remainingVotes, newKnownUsers, creatorBonuses),
+      };
+    }
 
     case 'ADD_SESSION':
       return { ...state, sessions: [...state.sessions, action.payload] };

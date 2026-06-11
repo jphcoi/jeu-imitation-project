@@ -13,8 +13,9 @@ export function DashboardPage() {
   const { state, dispatch, logout } = useGame();
   const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers } = state;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'personas' | 'export'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'sessions' | 'personas' | 'export'>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
 
@@ -121,6 +122,7 @@ export function DashboardPage() {
 
   const TABS = [
     { id: 'overview', label: 'Vue d\'ensemble' },
+    { id: 'users', label: 'Utilisateurs' },
     { id: 'sessions', label: 'Sessions' },
     { id: 'personas', label: 'Personnas' },
     { id: 'export', label: 'Export' },
@@ -320,6 +322,97 @@ export function DashboardPage() {
               </div>
             </div>
           </>
+        )}
+
+        {/* Users */}
+        {activeTab === 'users' && (
+          <div>
+            <p className="text-xs mb-4" style={{ color: MUTED }}>
+              {knownUsers.length} compte{knownUsers.length !== 1 ? 's' : ''} enregistré{knownUsers.length !== 1 ? 's' : ''}
+            </p>
+            {knownUsers.length === 0 ? (
+              <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun utilisateur enregistré.</p>
+            ) : (
+              <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr style={{ background: PANEL, borderBottom: `1px solid ${BORDER}` }}>
+                      {['Pseudo', 'Rôle', 'Classe', 'Établissement', 'Personnages', 'Sessions', 'Inscrit le', ''].map(h => (
+                        <th key={h} className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody style={{ background: CARD }}>
+                    {[...knownUsers]
+                      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                      .map(user => {
+                        const userPersonas = personas.filter(p => p.createdBy === user.id).length;
+                        const userSessions = sessions.filter(s => s.enqueteurId === user.id && s.status === 'completed').length;
+                        const isSelf = user.id === currentUser?.id;
+                        return (
+                          <tr key={user.id} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                            <td className="px-5 py-3 font-medium" style={{ color: TEXT }}>
+                              {user.pseudo}
+                              {isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }}>vous</span>}
+                            </td>
+                            <td className="px-5 py-3">
+                              <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                                background: user.role === 'teacher' ? '#fef3c7' : PANEL,
+                                color: user.role === 'teacher' ? '#d97706' : MUTED,
+                              }}>
+                                {user.role === 'teacher' ? 'Enseignant' : 'Élève'}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>{user.classId || '—'}</td>
+                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>{user.schoolId || '—'}</td>
+                            <td className="px-5 py-3 text-xs tabular-nums" style={{ color: MUTED }}>{userPersonas}</td>
+                            <td className="px-5 py-3 text-xs tabular-nums" style={{ color: MUTED }}>{userSessions}</td>
+                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>
+                              {new Date(user.createdAt).toLocaleDateString('fr-FR')}
+                            </td>
+                            <td className="px-5 py-3">
+                              {!isSelf && (
+                                deletingUserId === user.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => { dispatch({ type: 'DELETE_USER', payload: user.id }); setDeletingUserId(null); }}
+                                      className="text-xs px-2.5 py-1 rounded-lg font-medium text-white"
+                                      style={{ background: '#dc2626' }}
+                                    >
+                                      Confirmer
+                                    </button>
+                                    <button
+                                      onClick={() => setDeletingUserId(null)}
+                                      className="text-xs px-2.5 py-1 rounded-lg"
+                                      style={{ background: PANEL, color: MUTED }}
+                                    >
+                                      Annuler
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setDeletingUserId(user.id)}
+                                    className="text-xs px-2.5 py-1 rounded-lg transition-colors"
+                                    style={{ background: PANEL, color: MUTED }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                                  >
+                                    Supprimer
+                                  </button>
+                                )
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="text-xs mt-4" style={{ color: MUTED }}>
+              Supprimer un utilisateur supprime aussi ses personnages, ses sessions et ses votes.
+            </p>
+          </div>
         )}
 
         {/* Sessions */}
