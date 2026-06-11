@@ -31,9 +31,6 @@ export function DashboardPage() {
   };
 
   const completedSessions = sessions.filter(s => s.status === 'completed');
-  const myScore = enqueteurScores.find(s => s.userId === currentUser?.id);
-  const sortedEnqueteurs = [...enqueteurScores].sort((a, b) => b.totalPoints - a.totalPoints);
-  const myRank = myScore ? sortedEnqueteurs.findIndex(s => s.userId === currentUser?.id) + 1 : 0;
   const totalVotes = votes.length;
   const correctVotes = votes.filter(v => v.isCorrect).length;
   const avgReliability = enqueteurScores.length > 0
@@ -150,20 +147,6 @@ export function DashboardPage() {
           >
             Se déconnecter
           </button>
-        </div>
-
-        {/* Teacher personal stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-px mb-8 rounded-2xl overflow-hidden" style={{ background: BORDER }}>
-          {[
-            { label: 'Mes points', value: myScore?.totalPoints ?? 0, color: TEXT },
-            { label: 'Classement', value: myRank > 0 ? `#${myRank}` : '—', color: '#d97706' },
-            { label: 'Bonus créateur', value: myScore?.creatorBonusPoints ? `+${myScore.creatorBonusPoints}` : '—', color: '#10b981' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="px-6 py-5" style={{ background: CARD }}>
-              <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
-              <p className="text-xs mt-1" style={{ color: MUTED }}>{label}</p>
-            </div>
-          ))}
         </div>
 
         {/* Tabs */}
