@@ -153,11 +153,10 @@ export function DashboardPage() {
         </div>
 
         {/* Teacher personal stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-px mb-8 rounded-2xl overflow-hidden" style={{ background: BORDER }}>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-px mb-8 rounded-2xl overflow-hidden" style={{ background: BORDER }}>
           {[
             { label: 'Mes points', value: myScore?.totalPoints ?? 0, color: TEXT },
             { label: 'Classement', value: myRank > 0 ? `#${myRank}` : '—', color: '#d97706' },
-            { label: 'Mes détections', value: myScore ? `${myScore.correctDetections}/${myScore.totalSessions}` : '—', color: '#0891b2' },
             { label: 'Bonus créateur', value: myScore?.creatorBonusPoints ? `+${myScore.creatorBonusPoints}` : '—', color: '#10b981' },
           ].map(({ label, value, color }) => (
             <div key={label} className="px-6 py-5" style={{ background: CARD }}>
