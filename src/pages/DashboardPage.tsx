@@ -401,7 +401,11 @@ export function DashboardPage() {
                               </button>
 
                               {/* Expanded detail */}
-                              {isExpanded && (
+                              {isExpanded && (() => {
+                                const userSessionList = sessions
+                                  .filter(s => s.enqueteurId === user.id && s.status === 'completed')
+                                  .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+                                return (
                                 <div className="px-5 py-4" style={{ background: `${ACCENT}04`, borderTop: `1px solid ${BORDER}` }}>
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                     {[
@@ -416,6 +420,34 @@ export function DashboardPage() {
                                       </div>
                                     ))}
                                   </div>
+                                  {/* Session history */}
+                                  {userSessionList.length > 0 && (
+                                    <div className="mb-4 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: MUTED }}>Sessions</p>
+                                      <div className="space-y-1.5">
+                                        {userSessionList.map(s => {
+                                          const vote = votes.find(v => v.sessionId === s.id);
+                                          const aiPersona = personas.find(p => p.id === (s.aiIsInChat === 'A' ? s.personaIdA : s.personaIdB));
+                                          return (
+                                            <div key={s.id} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg" style={{ background: CARD }}>
+                                              <div className="flex items-center gap-3">
+                                                <span style={{ color: MUTED }}>{new Date(s.startTime).toLocaleDateString('fr-FR')}</span>
+                                                {aiPersona && <span style={{ color: '#db2777' }}>{aiPersona.name}</span>}
+                                                <span style={{ color: MUTED }}>IA dans chat {s.aiIsInChat}</span>
+                                              </div>
+                                              {vote ? (
+                                                vote.isCorrect
+                                                  ? <span style={{ color: ACCENT }}>✓ détecté</span>
+                                                  : <span style={{ color: '#db2777' }}>✗ trompé</span>
+                                              ) : (
+                                                <span style={{ color: '#d97706' }}>sans vote</span>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
                                   {!isSelf && (
                                     deletingUserId === user.id ? (
                                       <div className="flex items-center gap-2">
@@ -447,7 +479,8 @@ export function DashboardPage() {
                                     )
                                   )}
                                 </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           );
                         })}
