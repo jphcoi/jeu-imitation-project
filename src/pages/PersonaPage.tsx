@@ -64,15 +64,20 @@ type Tab = 'chatbot' | 'manual' | 'list';
 
 export function PersonaPage() {
   const { state, createPersona, dispatch } = useGame();
-  const { currentUser, personas } = state;
+  const { currentUser, personas, knownUsers } = state;
 
   const [tab, setTab] = useState<Tab>('chatbot');
   const [listSubTab, setListSubTab] = useState<'mine' | 'classmates'>('mine');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
 
-  const myPersonas = personas.filter(p => p.createdBy === currentUser?.id);
-  const classmatesPersonas = personas.filter(p => p.createdBy !== currentUser?.id);
+  // Match by pseudo so personas stay visible even if the user logged in under a different UUID
+  const myPseudo = currentUser?.pseudo.toLowerCase();
+  const sameNameIds = new Set(
+    knownUsers.filter(u => u.pseudo.toLowerCase() === myPseudo).map(u => u.id)
+  );
+  const myPersonas = personas.filter(p => sameNameIds.has(p.createdBy));
+  const classmatesPersonas = personas.filter(p => !sameNameIds.has(p.createdBy));
 
   const deletePersona = (id: string) => {
     if (confirm('Supprimer ce personnage ?')) {

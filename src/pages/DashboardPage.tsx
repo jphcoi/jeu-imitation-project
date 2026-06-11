@@ -333,11 +333,18 @@ export function DashboardPage() {
                     const displayName = users[0].pseudo;
                     const isOpen = expandedUserId === key;
                     // Aggregate sessions + personas across all accounts with this name
-                    const allUserIds = users.map(u => u.id);
+                    // Also match any persona whose creator pseudo matches, even if UUID isn't in this group
+                    const allUserIds = new Set(users.map(u => u.id));
+                    const pseudoLower = displayName.toLowerCase();
+                    const groupPersonas = personas.filter(p => {
+                      if (allUserIds.has(p.createdBy)) return true;
+                      const creator = knownUsers.find(u => u.id === p.createdBy);
+                      return creator?.pseudo.toLowerCase() === pseudoLower;
+                    });
                     const groupSessionList = sessions
-                      .filter(s => allUserIds.includes(s.enqueteurId) && s.status === 'completed')
+                      .filter(s => allUserIds.has(s.enqueteurId) && s.status === 'completed')
                       .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-                    const groupPersonaCount = personas.filter(p => allUserIds.includes(p.createdBy)).length;
+                    const groupPersonaCount = groupPersonas.length;
                     const isSelfGroup = users.some(u => u.id === currentUser?.id);
 
                     return (
@@ -453,7 +460,6 @@ export function DashboardPage() {
 
                               {/* Personas created by this user group */}
                               {(() => {
-                                const groupPersonas = personas.filter(p => allUserIds.includes(p.createdBy));
                                 if (groupPersonas.length === 0) return null;
                                 return (
                                   <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
