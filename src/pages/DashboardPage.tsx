@@ -16,6 +16,7 @@ export function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'sessions' | 'personas' | 'export'>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
 
@@ -325,95 +326,142 @@ export function DashboardPage() {
         )}
 
         {/* Users */}
-        {activeTab === 'users' && (
-          <div>
-            <p className="text-xs mb-4" style={{ color: MUTED }}>
-              {knownUsers.length} compte{knownUsers.length !== 1 ? 's' : ''} enregistré{knownUsers.length !== 1 ? 's' : ''}
-            </p>
-            {knownUsers.length === 0 ? (
-              <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun utilisateur enregistré.</p>
-            ) : (
-              <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr style={{ background: PANEL, borderBottom: `1px solid ${BORDER}` }}>
-                      {['Pseudo', 'Rôle', 'Classe', 'Établissement', 'Personnages', 'Sessions', 'Inscrit le', ''].map(h => (
-                        <th key={h} className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody style={{ background: CARD }}>
-                    {[...knownUsers]
-                      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-                      .map(user => {
-                        const userPersonas = personas.filter(p => p.createdBy === user.id).length;
-                        const userSessions = sessions.filter(s => s.enqueteurId === user.id && s.status === 'completed').length;
-                        const isSelf = user.id === currentUser?.id;
-                        return (
-                          <tr key={user.id} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                            <td className="px-5 py-3 font-medium" style={{ color: TEXT }}>
-                              {user.pseudo}
-                              {isSelf && <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }}>vous</span>}
-                            </td>
-                            <td className="px-5 py-3">
-                              <span className="text-xs px-2 py-0.5 rounded-full" style={{
-                                background: user.role === 'teacher' ? '#fef3c7' : PANEL,
-                                color: user.role === 'teacher' ? '#d97706' : MUTED,
-                              }}>
-                                {user.role === 'teacher' ? 'Enseignant' : 'Élève'}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>{user.classId || '—'}</td>
-                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>{user.schoolId || '—'}</td>
-                            <td className="px-5 py-3 text-xs tabular-nums" style={{ color: MUTED }}>{userPersonas}</td>
-                            <td className="px-5 py-3 text-xs tabular-nums" style={{ color: MUTED }}>{userSessions}</td>
-                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>
-                              {new Date(user.createdAt).toLocaleDateString('fr-FR')}
-                            </td>
-                            <td className="px-5 py-3">
-                              {!isSelf && (
-                                deletingUserId === user.id ? (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => { dispatch({ type: 'DELETE_USER', payload: user.id }); setDeletingUserId(null); }}
-                                      className="text-xs px-2.5 py-1 rounded-lg font-medium text-white"
-                                      style={{ background: '#dc2626' }}
-                                    >
-                                      Confirmer
-                                    </button>
-                                    <button
-                                      onClick={() => setDeletingUserId(null)}
-                                      className="text-xs px-2.5 py-1 rounded-lg"
-                                      style={{ background: PANEL, color: MUTED }}
-                                    >
-                                      Annuler
-                                    </button>
+        {activeTab === 'users' && (() => {
+          // Group by pseudo (case-insensitive)
+          const groups = new Map<string, typeof knownUsers>();
+          [...knownUsers]
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+            .forEach(u => {
+              const key = u.pseudo.toLowerCase();
+              if (!groups.has(key)) groups.set(key, []);
+              groups.get(key)!.push(u);
+            });
+          const groupEntries = Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+          return (
+            <div>
+              <p className="text-xs mb-4" style={{ color: MUTED }}>
+                {groupEntries.length} utilisateur{groupEntries.length !== 1 ? 's' : ''} · {knownUsers.length} compte{knownUsers.length !== 1 ? 's' : ''}
+              </p>
+              {groupEntries.length === 0 ? (
+                <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun utilisateur enregistré.</p>
+              ) : (
+                <div className="space-y-3">
+                  {groupEntries.map(([, users]) => {
+                    const displayName = users[0].pseudo;
+                    return (
+                      <div key={displayName} className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+                        {/* Group header */}
+                        <div className="flex items-center justify-between px-5 py-3" style={{ background: PANEL }}>
+                          <span className="text-sm font-semibold" style={{ color: TEXT }}>{displayName}</span>
+                          {users.length > 1 && (
+                            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: BORDER, color: MUTED }}>
+                              {users.length} comptes
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Account rows */}
+                        {users.map((user, idx) => {
+                          const userPersonas = personas.filter(p => p.createdBy === user.id).length;
+                          const userSessions = sessions.filter(s => s.enqueteurId === user.id && s.status === 'completed').length;
+                          const isSelf = user.id === currentUser?.id;
+                          const isExpanded = expandedUserId === user.id;
+                          const label = user.schoolId || 'Aucun établissement';
+
+                          return (
+                            <div key={user.id} style={{ borderTop: idx === 0 ? `1px solid ${BORDER}` : `1px solid ${BORDER}` }}>
+                              {/* Clickable row */}
+                              <button
+                                className="w-full flex items-center justify-between px-5 py-3 text-left transition-colors"
+                                style={{ background: isExpanded ? `${ACCENT}06` : CARD }}
+                                onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
+                                onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = PANEL; }}
+                                onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = CARD; }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm" style={{ color: ACCENT }}>{label}</span>
+                                  {isSelf && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: `${ACCENT}15`, color: ACCENT }}>vous</span>
+                                  )}
+                                  <span className="text-xs px-2 py-0.5 rounded-full" style={{
+                                    background: user.role === 'teacher' ? '#fef3c7' : PANEL,
+                                    color: user.role === 'teacher' ? '#d97706' : MUTED,
+                                  }}>
+                                    {user.role === 'teacher' ? 'Enseignant' : 'Élève'}
+                                  </span>
+                                </div>
+                                <svg
+                                  className="w-4 h-4 transition-transform"
+                                  style={{ color: MUTED, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+
+                              {/* Expanded detail */}
+                              {isExpanded && (
+                                <div className="px-5 py-4" style={{ background: `${ACCENT}04`, borderTop: `1px solid ${BORDER}` }}>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                    {[
+                                      { label: 'Classe', value: user.classId || '—' },
+                                      { label: 'Inscrit le', value: new Date(user.createdAt).toLocaleDateString('fr-FR') },
+                                      { label: 'Personnages créés', value: userPersonas },
+                                      { label: 'Sessions jouées', value: userSessions },
+                                    ].map(({ label, value }) => (
+                                      <div key={label}>
+                                        <p className="text-xs mb-0.5" style={{ color: MUTED }}>{label}</p>
+                                        <p className="text-sm font-semibold tabular-nums" style={{ color: TEXT }}>{value}</p>
+                                      </div>
+                                    ))}
                                   </div>
-                                ) : (
-                                  <button
-                                    onClick={() => setDeletingUserId(user.id)}
-                                    className="text-xs px-2.5 py-1 rounded-lg transition-colors"
-                                    style={{ background: PANEL, color: MUTED }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
-                                  >
-                                    Supprimer
-                                  </button>
-                                )
+                                  {!isSelf && (
+                                    deletingUserId === user.id ? (
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => { dispatch({ type: 'DELETE_USER', payload: user.id }); setDeletingUserId(null); setExpandedUserId(null); }}
+                                          className="text-xs px-3 py-1.5 rounded-lg font-medium text-white"
+                                          style={{ background: '#dc2626' }}
+                                        >
+                                          Confirmer la suppression
+                                        </button>
+                                        <button
+                                          onClick={() => setDeletingUserId(null)}
+                                          className="text-xs px-3 py-1.5 rounded-lg"
+                                          style={{ background: PANEL, color: MUTED }}
+                                        >
+                                          Annuler
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => setDeletingUserId(user.id)}
+                                        className="text-xs px-3 py-1.5 rounded-lg transition-colors"
+                                        style={{ background: PANEL, color: MUTED }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                                      >
+                                        Supprimer ce compte
+                                      </button>
+                                    )
+                                  )}
+                                </div>
                               )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <p className="text-xs mt-4" style={{ color: MUTED }}>
-              Supprimer un utilisateur supprime aussi ses personnages, ses sessions et ses votes.
-            </p>
-          </div>
-        )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs mt-4" style={{ color: MUTED }}>
+                Supprimer un compte supprime aussi ses personnages, ses sessions et ses votes.
+              </p>
+            </div>
+          );
+        })()}
 
         {/* Sessions */}
         {activeTab === 'sessions' && (
