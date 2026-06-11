@@ -468,6 +468,42 @@ export function DashboardPage() {
                                   </div>
                                 </>
                               )}
+
+                              {/* Personas created by this user group */}
+                              {(() => {
+                                const groupPersonas = personas.filter(p => allUserIds.includes(p.createdBy));
+                                if (groupPersonas.length === 0) return null;
+                                return (
+                                  <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+                                    <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: MUTED }}>Personnages créés</p>
+                                    <div className="space-y-1.5">
+                                      {groupPersonas.map(p => {
+                                        const ps = personaScores.find(s => s.personaId === p.id);
+                                        return (
+                                          <div key={p.id} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg" style={{ background: CARD }}>
+                                            <div className="flex items-center gap-3">
+                                              <span className="font-medium" style={{ color: '#db2777' }}>{p.name}, {p.age} ans</span>
+                                              {p.traits.slice(0, 2).map(t => (
+                                                <span key={t} className="px-1.5 py-0.5 rounded-full" style={{ background: `${ACCENT}10`, color: ACCENT }}>{t}</span>
+                                              ))}
+                                            </div>
+                                            <div className="flex items-center gap-3 shrink-0">
+                                              {ps && ps.totalSessions > 0 ? (
+                                                <>
+                                                  <span style={{ color: MUTED }}>{ps.totalSessions} partie{ps.totalSessions !== 1 ? 's' : ''}</span>
+                                                  <span style={{ color: '#10b981' }}>{ps.credibilityIndex.toFixed(0)}% crédibilité</span>
+                                                </>
+                                              ) : (
+                                                <span style={{ color: MUTED }}>pas encore joué</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
