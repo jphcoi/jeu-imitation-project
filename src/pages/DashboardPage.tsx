@@ -11,7 +11,7 @@ const ACCENT = '#6366f1';
 
 export function DashboardPage() {
   const { state, dispatch, logout } = useGame();
-  const { currentUser, sessions, votes, personas, enqueteurScores, personaScores } = state;
+  const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers } = state;
 
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'personas' | 'export'>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -40,6 +40,36 @@ export function DashboardPage() {
   const avgCredibility = personaScores.length > 0
     ? personaScores.reduce((acc, s) => acc + s.credibilityIndex, 0) / personaScores.length
     : 0;
+
+  // Personas ranked by convincingness (highest credibility = fooled the most players)
+  const rankedPersonas = personaScores
+    .filter(s => s.totalSessions > 0)
+    .map(s => {
+      const persona = personas.find(p => p.id === s.personaId);
+      const creator = knownUsers.find(u => u.id === persona?.createdBy);
+      return { ...s, personaName: persona?.name || s.personaName, creatorPseudo: creator?.pseudo || '—' };
+    })
+    .sort((a, b) => b.credibilityIndex - a.credibilityIndex);
+
+  // Detection rate per class
+  const classSummary = new Map<string, { sessions: number; correct: number; users: Set<string> }>();
+  enqueteurScores.forEach(score => {
+    const user = knownUsers.find(u => u.id === score.userId);
+    const cls = user?.classId || 'Sans classe';
+    if (!classSummary.has(cls)) classSummary.set(cls, { sessions: 0, correct: 0, users: new Set() });
+    const c = classSummary.get(cls)!;
+    c.sessions += score.totalSessions;
+    c.correct += score.correctDetections;
+    c.users.add(score.userId);
+  });
+  const classRows = Array.from(classSummary.entries())
+    .map(([cls, data]) => ({
+      cls,
+      users: data.users.size,
+      sessions: data.sessions,
+      detectionRate: data.sessions > 0 ? (data.correct / data.sessions) * 100 : 0,
+    }))
+    .sort((a, b) => b.detectionRate - a.detectionRate);
 
   const exportData = () => {
     const data = {
@@ -217,6 +247,76 @@ export function DashboardPage() {
                       </div>
                     ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Analytics row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Ranked personas */}
+              <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: MUTED }}>
+                  Personnages les plus convaincants
+                </p>
+                <p className="text-xs mb-5" style={{ color: MUTED }}>Ceux qui ont le mieux trompé les enquêteurs</p>
+                {rankedPersonas.length === 0 ? (
+                  <p className="text-sm" style={{ color: MUTED }}>Aucune session jouée pour l'instant.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {rankedPersonas.slice(0, 8).map((s, i) => (
+                      <div key={s.personaId}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs tabular-nums w-5" style={{ color: MUTED }}>#{i + 1}</span>
+                            <span className="text-sm font-medium truncate max-w-[130px]" style={{ color: '#db2777' }}>{s.personaName}</span>
+                            <span className="text-xs" style={{ color: MUTED }}>par {s.creatorPseudo}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-sm font-bold tabular-nums" style={{ color: '#10b981' }}>{s.credibilityIndex.toFixed(0)}%</span>
+                            <span className="text-xs ml-1" style={{ color: MUTED }}>{s.totalSessions} partie{s.totalSessions !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: PANEL }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${s.credibilityIndex}%`, background: '#10b981' }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Detection rate per class */}
+              <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: MUTED }}>
+                  Détection par classe
+                </p>
+                <p className="text-xs mb-5" style={{ color: MUTED }}>Taux de détection moyen des enquêteurs par groupe</p>
+                {classRows.length === 0 ? (
+                  <p className="text-sm" style={{ color: MUTED }}>Aucune donnée de classe disponible.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {classRows.map(row => (
+                      <div key={row.cls}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium" style={{ color: TEXT }}>{row.cls}</span>
+                            <span className="text-xs" style={{ color: MUTED }}>{row.users} élève{row.users !== 1 ? 's' : ''} · {row.sessions} partie{row.sessions !== 1 ? 's' : ''}</span>
+                          </div>
+                          <span className="text-sm font-bold tabular-nums" style={{ color: ACCENT }}>{row.detectionRate.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: PANEL }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${row.detectionRate}%`, background: ACCENT }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </>
