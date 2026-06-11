@@ -69,7 +69,7 @@ function calculatePersonaScores(sessions: ChatSession[], votes: Vote[], personas
         const personaWon = vote.votedChat !== session.aiIsInChat; // enquêteur got it wrong
         if (personaWon) {
           aiScore.consecutiveWins++;
-          if (aiScore.consecutiveWins % 2 === 0) {
+          if (aiScore.consecutiveWins % 3 === 0) {
             aiScore.bonusPointsEarned += 2;
           }
         } else {

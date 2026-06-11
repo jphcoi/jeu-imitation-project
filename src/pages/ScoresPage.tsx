@@ -168,7 +168,7 @@ export function ScoresPage() {
           <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: MUTED }}>Légende</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm" style={{ color: MUTED }}>
             <div className="space-y-1.5">
-              <p><span style={{ color: '#d97706' }}>Points</span> — +2 par détection correcte, +1 bonus pour justification argumentée. Bonus créateur : +2 pts si votre IA déjoue 2 enquêteurs de suite.</p>
+              <p><span style={{ color: '#d97706' }}>Points</span> — +2 par détection correcte, +1 bonus pour justification argumentée. Bonus créateur : +2 pts si votre IA déjoue 3 enquêteurs de suite.</p>
               <p><span style={{ color: '#0891b2' }}>Rᵢ (Fiabilité)</span> — % de détections correctes</p>
             </div>
             <div className="space-y-1.5">
