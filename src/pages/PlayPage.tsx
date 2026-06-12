@@ -35,13 +35,15 @@ export function PlayPage() {
   const { state, dispatch } = useGame();
   const { currentUser, personas, sessions } = state;
 
-  // Collect past human messages from completed sessions for style learning
+  // All human messages sent directly to the AI across every completed session —
+  // gives the AI a collective picture of how people talk to it
   const pastUserMessages = sessions
-    .filter(s => s.status === 'completed' && s.enqueteurId === currentUser?.id)
-    .flatMap(s => [...s.messages.chatA, ...s.messages.chatB])
-    .filter(m => m.senderId === currentUser?.id && !m.isFromAI)
-    .map(m => m.content)
-    .slice(-60);
+    .filter(s => s.status === 'completed' && s.aiIsInChat !== 'both')
+    .flatMap(s => {
+      const aiChat = s.aiIsInChat === 'A' ? s.messages.chatA : s.messages.chatB;
+      return aiChat.filter(m => !m.isFromAI).map(m => m.content);
+    })
+    .slice(-100);
   const location = useLocation();
 
   const [phase, setPhase] = useState<GamePhase>('select');
