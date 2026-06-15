@@ -2,7 +2,7 @@ export const config = {
   runtime: 'edge',
 };
 
-// ─── Upstash Redis REST helpers ───
+// 🔄🔄🔄 Upstash Redis REST helpers 🔄🔄🔄
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -42,7 +42,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-// ─── Room data structures ───
+// 🔄🔄🔄 Room data structures 🔄🔄🔄
 
 interface Room {
   host: string;
@@ -59,7 +59,7 @@ interface QueueEntry {
   classId?: string;
 }
 
-// ─── Handler ───
+// 🔄🔄🔄 Handler 🔄🔄🔄
 
 export default async function handler(request: Request): Promise<Response> {
   if (request.method === 'OPTIONS') {
@@ -85,9 +85,9 @@ export default async function handler(request: Request): Promise<Response> {
 
     switch (action) {
 
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       // CREATE PRIVATE ROOM
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'create-room': {
         const { roomCode, userId } = body;
         const room: Room = {
@@ -101,9 +101,9 @@ export default async function handler(request: Request): Promise<Response> {
         return json({ roomCode, status: 'waiting' });
       }
 
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       // JOIN AN EXISTING ROOM
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'join-room': {
         const { roomCode, userId } = body;
         const raw = await redis('GET', `room:${roomCode}`) as string | null;
@@ -131,9 +131,9 @@ export default async function handler(request: Request): Promise<Response> {
         });
       }
 
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       // JOIN SESSION QUEUE (cross-school pairing)
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'join-session': {
         const { userId, sessionCode, schoolId, classId } = body as {
           userId: string;
@@ -189,7 +189,7 @@ export default async function handler(request: Request): Promise<Response> {
           }
         }
 
-        // No match yet — add self to the session queue
+        // No match yet – add self to the session queue
         const entry = JSON.stringify({ schoolId, classId, timestamp: Date.now() });
         await redisPipeline([
           ['HSET', queueKey, userId, entry],
@@ -198,28 +198,33 @@ export default async function handler(request: Request): Promise<Response> {
         return json({ status: 'waiting' });
       }
 
-      // ═══════════════════════════════════════
-      // JOIN GENERIC QUEUE
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+      // JOIN GENERIC QUEUE — uses hash so N users can wait simultaneously
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'join-queue': {
         const { userId, schoolId, classId } = body as { userId: string; schoolId?: string; classId?: string };
+        const queueKey = 'queue:generic:v2';
 
-        // Check if someone is already waiting
-        const qRaw = await redis('GET', 'queue:generic') as string | null;
+        // Get all users currently waiting
+        const allEntries = await redis('HGETALL', queueKey) as string[] | null;
 
-        if (qRaw) {
-          const q = JSON.parse(qRaw) as QueueEntry;
+        if (allEntries && allEntries.length > 0) {
+          for (let i = 0; i < allEntries.length; i += 2) {
+            const waitingUserId = allEntries[i];
+            const waitingData = JSON.parse(allEntries[i + 1]) as QueueEntry;
 
-          if (q.userId !== userId && Date.now() - q.timestamp < 120_000) {
+            if (waitingUserId === userId) continue;
+            if (Date.now() - waitingData.timestamp > 120_000) continue;
+
+            // Found a match
             const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const hostIsEnqueteur = Math.random() > 0.5;
-
             const room: Room = {
-              host: q.userId,
+              host: waitingUserId,
               guest: userId,
               status: 'playing',
               roles: {
-                [q.userId]: hostIsEnqueteur ? 'enqueteur' : 'enquete',
+                [waitingUserId]: hostIsEnqueteur ? 'enqueteur' : 'enquete',
                 [userId]: hostIsEnqueteur ? 'enquete' : 'enqueteur',
               },
               createdAt: Date.now(),
@@ -227,35 +232,40 @@ export default async function handler(request: Request): Promise<Response> {
 
             await redisPipeline([
               ['SET', `room:${roomCode}`, JSON.stringify(room), 'EX', '600'],
-              ['SET', `queue:match:${q.userId}`, roomCode, 'EX', '120'],
-              ['DEL', 'queue:generic'],
+              ['SET', `queue:match:${waitingUserId}`, roomCode, 'EX', '120'],
+              ['HDEL', queueKey, waitingUserId],
             ]);
 
             return json({
               roomCode,
               status: 'playing',
-              role: room.roles![userId],
-              partnerId: q.userId,
+              role: room.roles[userId],
+              partnerId: waitingUserId,
             });
           }
         }
 
-        // No match yet → put myself in the queue with school/class info
-        const entry: QueueEntry = { userId, timestamp: Date.now(), schoolId, classId };
-        await redis('SET', 'queue:generic', JSON.stringify(entry), 'EX', '120');
+        // No match found – add self to the hash queue
+        const entry = JSON.stringify({ userId, timestamp: Date.now(), schoolId, classId });
+        await redisPipeline([
+          ['HSET', queueKey, userId, entry],
+          ['EXPIRE', queueKey, '300'],
+        ]);
         return json({ status: 'waiting' });
       }
 
-      // ═══════════════════════════════════════
-      // POLL — room status + messages
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+      // POLL – room status + messages
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'poll': {
         const { roomCode, userId, lastMsgIndex = 0 } = body;
 
-        // ── No room code: we're polling from the generic queue ──
+        // 🔄 No room code: we're polling from the generic queue 🔄
         if (!roomCode) {
           const matchRoom = await redis('GET', `queue:match:${userId}`) as string | null;
           if (matchRoom) {
+            // Delete so repeat polls don't re-trigger onMatched
+            await redis('DEL', `queue:match:${userId}`);
             const raw = await redis('GET', `room:${matchRoom}`) as string | null;
             if (raw) {
               const room: Room = JSON.parse(raw);
@@ -270,7 +280,7 @@ export default async function handler(request: Request): Promise<Response> {
           return json({ status: 'waiting' });
         }
 
-        // ── Room code provided: poll room + messages ──
+        // 🔄 Room code provided: poll room + messages 🔄
         const results = await redisPipeline([
           ['GET', `room:${roomCode}`],
           ['LRANGE', `msgs:${roomCode}`, String(lastMsgIndex), '-1'],
@@ -302,9 +312,9 @@ export default async function handler(request: Request): Promise<Response> {
         });
       }
 
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       // SEND MESSAGE
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'send': {
         const { roomCode, senderId, content } = body;
         const msg = {
@@ -320,9 +330,9 @@ export default async function handler(request: Request): Promise<Response> {
         return json({ ok: true });
       }
 
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       // TYPING INDICATOR
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'typing': {
         const { roomCode, userId } = body;
         await redis(
@@ -335,9 +345,9 @@ export default async function handler(request: Request): Promise<Response> {
         return json({ ok: true });
       }
 
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       // GAME END
-      // ═══════════════════════════════════════
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'game-end': {
         const { roomCode } = body;
         await redis('SET', `gameend:${roomCode}`, '1', 'EX', '600');
