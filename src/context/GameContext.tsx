@@ -16,7 +16,8 @@ type Action =
   | { type: 'ADD_VOTE'; payload: Vote }
   | { type: 'UPDATE_SCORES' }
   | { type: 'SEED_DEFAULTS' }
-  | { type: 'LOAD_STATE'; payload: GameState };
+  | { type: 'LOAD_STATE'; payload: GameState }
+  | { type: 'ADD_TOKEN_USAGE'; payload: { promptTokens: number; completionTokens: number } };
 
 const initialState: GameState = {
   currentUser: null,
@@ -26,6 +27,7 @@ const initialState: GameState = {
   votes: [],
   enqueteurScores: [],
   personaScores: [],
+  apiUsage: { promptTokens: 0, completionTokens: 0 },
 };
 
 function calculatePersonaScores(sessions: ChatSession[], votes: Vote[], personas: Persona[]): PersonaScore[] {
@@ -275,7 +277,16 @@ function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'LOAD_STATE':
-      return action.payload;
+      return { ...initialState, ...action.payload };
+
+    case 'ADD_TOKEN_USAGE':
+      return {
+        ...state,
+        apiUsage: {
+          promptTokens: (state.apiUsage?.promptTokens ?? 0) + action.payload.promptTokens,
+          completionTokens: (state.apiUsage?.completionTokens ?? 0) + action.payload.completionTokens,
+        },
+      };
 
     default:
       return state;

@@ -105,4 +105,5 @@ export interface GameState {
   votes: Vote[];
   enqueteurScores: EnqueteurScore[];
   personaScores: PersonaScore[];
+  apiUsage: { promptTokens: number; completionTokens: number };
 }

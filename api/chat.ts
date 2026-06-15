@@ -247,8 +247,9 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
     const parts = raw.split('|||').map((s: string) => s.trim()).filter(Boolean);
     const response = parts[0];
     const followUp = parts[1] ?? null;
+    const usage = data.usage ?? null;
 
-    return new Response(JSON.stringify({ response, followUp }), {
+    return new Response(JSON.stringify({ response, followUp, usage }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

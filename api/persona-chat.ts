@@ -158,8 +158,9 @@ export default async function handler(request: Request): Promise<Response> {
 
     const data = await groqRes.json();
     const response = data.choices?.[0]?.message?.content ?? '';
+    const usage = data.usage ?? null;
 
-    return new Response(JSON.stringify({ response }), {
+    return new Response(JSON.stringify({ response, usage }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

@@ -283,7 +283,8 @@ export function PlayPage() {
     const isAI = session.aiIsInChat === 'A' || session.aiIsInChat === 'both';
     if (isAI && personaA) {
       setTypingA(true);
-      const { response, followUp } = await generateAIResponse(personaA, messagesA, question, pastUserMessages);
+      const { response, followUp, usage } = await generateAIResponse(personaA, messagesA, question, pastUserMessages);
+      if (usage) dispatch({ type: 'ADD_TOKEN_USAGE', payload: { promptTokens: usage.prompt_tokens, completionTokens: usage.completion_tokens } });
       await new Promise(resolve => setTimeout(resolve, computeTypingDelay(response)));
       setTypingA(false);
       setMessagesA(prev => [...prev, createAIMessage(response)]);
@@ -309,7 +310,8 @@ export function PlayPage() {
     const isAI = session.aiIsInChat === 'B' || session.aiIsInChat === 'both';
     if (isAI && personaB) {
       setTypingB(true);
-      const { response, followUp } = await generateAIResponse(personaB, messagesB, question, pastUserMessages);
+      const { response, followUp, usage } = await generateAIResponse(personaB, messagesB, question, pastUserMessages);
+      if (usage) dispatch({ type: 'ADD_TOKEN_USAGE', payload: { promptTokens: usage.prompt_tokens, completionTokens: usage.completion_tokens } });
       await new Promise(resolve => setTimeout(resolve, computeTypingDelay(response)));
       setTypingB(false);
       setMessagesB(prev => [...prev, createAIMessage(response)]);

@@ -11,7 +11,7 @@ const ACCENT = '#6366f1';
 
 export function DashboardPage() {
   const { state, dispatch, logout } = useGame();
-  const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers } = state;
+  const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers, apiUsage } = state;
 
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'sessions' | 'personas' | 'export'>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -29,6 +29,8 @@ export function DashboardPage() {
     dispatch({ type: 'UPDATE_PERSONA', payload: { ...p, name: editForm.name.trim(), age: parseInt(editForm.age) || p.age, description: editForm.description.trim(), traits: editForm.traits.split(',').map(t => t.trim()).filter(Boolean), interests: editForm.interests.split(',').map(i => i.trim()).filter(Boolean), speakingStyle: editForm.speakingStyle.trim() } });
     setEditingId(null);
   };
+
+  const estimatedCostUSD = ((apiUsage?.promptTokens ?? 0) * 0.00000015 + (apiUsage?.completionTokens ?? 0) * 0.0000006);
 
   const completedSessions = sessions.filter(s => s.status === 'completed');
   const totalVotes = votes.length;
@@ -170,7 +172,7 @@ export function DashboardPage() {
         {/* Overview */}
         {activeTab === 'overview' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-px mb-8 rounded-2xl overflow-hidden" style={{ background: BORDER }}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-px mb-4 rounded-2xl overflow-hidden" style={{ background: BORDER }}>
               {[
                 { label: 'Sessions terminées', value: completedSessions.length, color: TEXT },
                 { label: 'Votes', value: `${correctVotes}/${totalVotes}`, color: '#0891b2' },
@@ -182,6 +184,18 @@ export function DashboardPage() {
                   <p className="text-xs mt-1" style={{ color: MUTED }}>{label}</p>
                 </div>
               ))}
+            </div>
+
+            <div className="mb-8 rounded-2xl px-6 py-5 flex items-center justify-between" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: MUTED }}>Coût estimé OpenAI (gpt-4o-mini)</p>
+                <p className="text-xs" style={{ color: MUTED }}>
+                  {(apiUsage?.promptTokens ?? 0).toLocaleString()} tokens entrée · {(apiUsage?.completionTokens ?? 0).toLocaleString()} tokens sortie
+                </p>
+              </div>
+              <p className="text-3xl font-bold tabular-nums" style={{ color: '#059669' }}>
+                ${estimatedCostUSD.toFixed(4)}
+              </p>
             </div>
 
             <div className="rounded-2xl p-6 mb-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
