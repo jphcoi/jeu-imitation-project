@@ -39,6 +39,7 @@ export function useMultiplayer(userId: string) {
   const matchPollRef = useRef<number | null>(null);
   const lastTypingSentRef = useRef(0);
   const mountedRef = useRef(true);
+  const matchedRef = useRef(false);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -50,7 +51,7 @@ export function useMultiplayer(userId: string) {
     };
   }, []);
 
-  // ─── API helper ───
+  // 🎮🎮🎮 API helper 🎮🎮🎮
 
   const relay = useCallback(async (body: Record<string, unknown>) => {
     try {
@@ -71,11 +72,12 @@ export function useMultiplayer(userId: string) {
     }
   }, []);
 
-  // ─── Finalise a match ───
+  // 🎮🎮🎮 Finalise a match 🎮🎮🎮
 
   const onMatched = useCallback(
     (partnerId: string, role: MultiplayerRole, roomCode: string) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || matchedRef.current) return;
+      matchedRef.current = true;
 
       // Stop any match polling
       if (matchPollRef.current) {
@@ -133,7 +135,7 @@ export function useMultiplayer(userId: string) {
     [relay, userId],
   );
 
-  // ─── Create private room ───
+  // 🎮🎮🎮 Create private room 🎮🎮🎮
 
   const createPrivateRoom = useCallback(
     async (roomCode: string) => {
@@ -159,7 +161,7 @@ export function useMultiplayer(userId: string) {
     [relay, userId, onMatched],
   );
 
-  // ─── Join private room ───
+  // 🎮🎮🎮 Join private room 🎮🎮🎮
 
   const joinPrivateRoom = useCallback(
     async (roomCode: string) => {
@@ -189,7 +191,7 @@ export function useMultiplayer(userId: string) {
     [relay, userId, onMatched],
   );
 
-  // ─── Join generic queue ───
+  // 🎮🎮🎮 Join generic queue 🎮🎮🎮
 
   const joinGenericQueue = useCallback(async (schoolId?: string, classId?: string) => {
     setIsSearching(true);
@@ -224,7 +226,7 @@ export function useMultiplayer(userId: string) {
     }, 1500);
   }, [relay, userId, onMatched]);
 
-  // ─── In-game actions ───
+  // 🎮🎮🎮 In-game actions 🎮🎮🎮
 
   const sendMessage = useCallback(
     (content: string) => {
@@ -249,7 +251,7 @@ export function useMultiplayer(userId: string) {
     relay({ action: 'game-end', roomCode: roomCodeRef.current });
   }, [relay]);
 
-  // ─── Rejoin an already-matched room (coming from lobby) ───
+  // 🎮🎮🎮 Rejoin an already-matched room (coming from lobby) 🎮🎮🎮
 
   const rejoinRoom = useCallback(
     (roomCode: string, role: MultiplayerRole, partnerId: string) => {
@@ -258,7 +260,7 @@ export function useMultiplayer(userId: string) {
     [onMatched],
   );
 
-  // ─── Disconnect & reset ───
+  // 🎮🎮🎮 Disconnect & reset 🎮🎮🎮
 
   const disconnect = useCallback(() => {
     if (roomCodeRef.current) {
@@ -271,6 +273,7 @@ export function useMultiplayer(userId: string) {
     roomCodeRef.current = null;
     lastMsgIndexRef.current = 0;
     lastTypingSentRef.current = 0;
+    matchedRef.current = false;
     setMatchData(null);
     setIsSearching(false);
     setReceivedMessages([]);
