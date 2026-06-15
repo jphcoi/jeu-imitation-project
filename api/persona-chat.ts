@@ -104,10 +104,7 @@ export default async function handler(request: Request): Promise<Response> {
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured', debug: 'key is missing or empty' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
-  }
-  if (!apiKey.startsWith('sk-')) {
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY wrong format', debug: `key starts with: ${apiKey.substring(0, 6)}` }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   }
 
   try {
