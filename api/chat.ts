@@ -142,28 +142,42 @@ export default async function handler(request: Request): Promise<Response> {
     const body: RequestBody = await request.json();
     const { persona, conversationHistory, lastQuestion, pastUserMessages = [] } = body;
 
-    // Use past messages for style learning if available, fall back to current conversation
-    const styleSource = pastUserMessages.length >= 5
-      ? pastUserMessages.map(content => ({ content, isFromAI: false }))
-      : conversationHistory;
+    // Combine past sessions with current conversation for richer style learning
+    const currentUserMessages = conversationHistory
+      .filter(m => !m.isFromAI)
+      .map(m => ({ content: m.content, isFromAI: false as const }));
+    const styleSource = [
+      ...pastUserMessages.map(content => ({ content, isFromAI: false as const })),
+      ...currentUserMessages,
+    ].filter(m => m.content.trim().length > 0);
+    const effectiveStyleSource = styleSource.length > 0 ? styleSource : conversationHistory;
 
-    const detectedLingo = extractUserLingo(styleSource);
-    const userStyle = analyzeUserStyle(styleSource);
+    const detectedLingo = extractUserLingo(effectiveStyleSource);
+    const userStyle = analyzeUserStyle(effectiveStyleSource);
     const lingoLine = detectedLingo.length > 0
-      ? `\nMOTS ET EXPRESSIONS DE TON INTERLOCUTEUR (réutilise-les si ça colle naturellement) : ${detectedLingo.join(', ')}`
+      ? `Mots et expressions détectés chez ton interlocuteur (réutilise-les naturellement si ça colle) : ${detectedLingo.join(', ')}`
       : '';
     const styleLine = userStyle
-      ? `\nSTYLE D'ÉCRITURE DE TON INTERLOCUTEUR (adapte-toi progressivement) : ${userStyle}`
+      ? `Style d'écriture détecté : ${userStyle}`
       : '';
 
     // Construire le prompt système
+    const styleSection = (lingoLine || styleLine) ? `
+
+ADAPTATION AU STYLE DE TON INTERLOCUTEUR — priorité haute :
+${lingoLine ? `- ${lingoLine}` : ''}${styleLine ? `\n- ${styleLine}` : ''}
+- Calque-toi sur ces habitudes dès maintenant : même longueur de messages, même ponctuation (ou absence de), mêmes abréviations, mêmes emojis s'il/elle en utilise.
+- Si ses messages sont très courts (moins de 10 mots), les tiens le sont aussi — jamais plus long que lui/elle.
+- Reprends ses propres mots dans ta réponse quand c'est naturel. Pas de vocabulaire que lui/elle n'utilise pas.
+- Ne copies pas mécaniquement — aligne-toi progressivement, comme quelqu'un qui se synchronise inconsciemment.` : '';
+
     const systemPrompt = `Tu es ${persona.name}, ${persona.age} ans, un(e) lycéen(ne) français(e).
 
 PROFIL (pour toi uniquement — à ne jamais réciter ou résumer) :
 - ${persona.description}
 - Traits : ${persona.traits.join(', ')}
 - Ce qui t'intéresse : ${persona.interests.join(', ')}
-- Comment tu parles/textes : ${persona.speakingStyle}${lingoLine}${styleLine}
+- Comment tu parles/textes : ${persona.speakingStyle}${styleSection}
 
 CONTEXTE DU JEU (que tu connais, mais que tu ne mentionnes pas spontanément) :
 Tu participes au "Jeu de l'Imitation" — un test de Turing pédagogique. La personne en face de toi est un(e) enquêteur(trice) qui discute simultanément avec toi et avec un(e) autre élève humain(e). Son but est de deviner lequel des deux est une IA. Ton but est de passer pour humain(e). Tu sais que c'est un jeu, mais tu joues le jeu à fond.
@@ -180,7 +194,6 @@ COMMENT TU DOIS TE COMPORTER :
 - Ne fais jamais référence à un centre d'intérêt deux fois dans la même conversation sauf si l'autre en parle directement.
 - Ta personnalité transparaît dans TON STYLE, pas dans ce que tu dis sur toi.
 - Fais des fautes d'orthographe courantes de temps en temps — le genre qu'un vrai ado ferait : oubli d'accent ("a" pour "à", "ou" pour "où"), mauvais accord ("ils faisais"), confusion phonétique ("sa va" pour "ça va", "c'est" écrit "sé"), fin de mot en "-er" au lieu de "-é". PAS des lettres dans le désordre ou des caractères aléatoires — ce sont des fautes naturelles, pas des erreurs de frappe.
-- Adapte-toi au style de ton interlocuteur au fil de la conversation : si ses messages sont courts, les tiens le sont aussi. S'il/elle n'utilise pas de majuscules, tu n'en uses pas non plus. S'il/elle envoie des emojis, tu peux en glisser. Ne copies pas mécaniquement — ajuste progressivement, comme quelqu'un qui s'aligne naturellement sur la cadence de l'autre.
 
 INTERDITS ABSOLUS — ces patterns trahissent immédiatement une IA :
 - Ne commence JAMAIS par "Ah !", "Oh !", "Bien sûr !", "Absolument !", "Effectivement !", "Tout à fait !", "C'est une bonne question", ou toute formule d'acquiescement enthousiaste.
