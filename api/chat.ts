@@ -2,7 +2,7 @@ export const config = {
   runtime: 'edge',
 };
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -129,10 +129,10 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    console.error('GROQ_API_KEY not found in environment');
-    return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), {
+    console.error('OPENAI_API_KEY not found in environment');
+    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -218,17 +218,14 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
     // Ajouter la dernière question
     messages.push({ role: 'user', content: lastQuestion });
 
-    console.log('Calling Groq API with', messages.length, 'messages');
-
-    // Appel à Groq API
-    const groqResponse = await fetch(GROQ_API_URL, {
+    const groqResponse = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'gpt-4o-mini',
         messages,
         max_tokens: 150,
         temperature: 0.9,
@@ -238,7 +235,7 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text();
-      console.error('Groq API error:', groqResponse.status, errorText);
+      console.error('OpenAI API error:', groqResponse.status, errorText);
       return new Response(JSON.stringify({ error: 'LLM API error', details: errorText }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
