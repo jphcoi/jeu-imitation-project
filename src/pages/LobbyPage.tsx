@@ -6,8 +6,7 @@ import { useMultiplayer } from '../hooks/useMultiplayer';
 const BG = '#faf7f2';
 const CARD = '#ffffff';
 const BORDER = 'rgba(0,0,0,0.08)';
-const PANEL = '#f5f0e8';
-const MUTED = '#78716c';
+const MUTED = '#787176';
 const TEXT = '#1c1917';
 
 export function LobbyPage() {
@@ -48,16 +47,28 @@ export function LobbyPage() {
     navigate('/');
   };
 
+  const relayErr = multiplayer.relayError;
+
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: BG, fontFamily: 'Inter, system-ui, sans-serif' }}
+      style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <div className="w-full max-w-sm">
         <div
           className="rounded-2xl p-10 text-center"
           style={{ background: CARD, border: `1px solid ${BORDER}` }}
         >
+          {relayErr && (
+            <div
+              className="mb-6 px-4 py-3 rounded-xl text-left text-sm"
+              style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c' }}
+            >
+              <p className="font-semibold mb-0.5">Multijoueur indisponible</p>
+              <p className="text-xs">{relayErr}</p>
+            </div>
+          )}
+
           <div className="flex justify-center gap-2 mb-8">
             <div className="typing-dot" />
             <div className="typing-dot" />
@@ -74,7 +85,7 @@ export function LobbyPage() {
 
           <div
             className="inline-block px-8 py-4 rounded-xl mb-6"
-            style={{ background: PANEL, border: `1px solid ${BORDER}` }}
+            style={{ background: '#f5f0e8', border: `1px solid ${BORDER}` }}
           >
             <p className="text-3xl font-bold tabular-nums tracking-widest" style={{ color: '#6366f1' }}>
               {timeStr}
@@ -88,7 +99,7 @@ export function LobbyPage() {
           <button
             onClick={handleCancel}
             className="px-6 py-2.5 rounded-xl text-sm font-medium transition-colors"
-            style={{ background: PANEL, border: `1px solid ${BORDER}`, color: MUTED }}
+            style={{ background: '#f5f0e8', border: `1px solid ${BORDER}`, color: MUTED }}
             onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
             onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
           >
