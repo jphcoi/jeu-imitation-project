@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGame } from '../context/GameContext';
 
 const BG = '#faf7f2';
@@ -11,8 +11,9 @@ const ACCENT = '#6366f1';
 
 export function DashboardPage() {
   const { state, dispatch, logout } = useGame();
-  const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers, apiUsage } = state;
+  const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers } = state;
 
+  const [globalUsage, setGlobalUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'sessions' | 'personas' | 'export'>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -30,7 +31,20 @@ export function DashboardPage() {
     setEditingId(null);
   };
 
-  const estimatedCostUSD = ((apiUsage?.promptTokens ?? 0) * 0.00000015 + (apiUsage?.completionTokens ?? 0) * 0.0000006);
+  useEffect(() => {
+    fetch('/api/relay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-usage' }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (typeof data.promptTokens === 'number') setGlobalUsage(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const estimatedCostUSD = ((globalUsage?.promptTokens ?? 0) * 0.00000015 + (globalUsage?.completionTokens ?? 0) * 0.0000006);
 
   const completedSessions = sessions.filter(s => s.status === 'completed');
   const totalVotes = votes.length;
@@ -190,7 +204,7 @@ export function DashboardPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: MUTED }}>Coût estimé OpenAI (gpt-4o-mini)</p>
                 <p className="text-xs" style={{ color: MUTED }}>
-                  {(apiUsage?.promptTokens ?? 0).toLocaleString()} tokens entrée · {(apiUsage?.completionTokens ?? 0).toLocaleString()} tokens sortie
+                  {(globalUsage?.promptTokens ?? 0).toLocaleString()} tokens entrée · {(globalUsage?.completionTokens ?? 0).toLocaleString()} tokens sortie
                 </p>
               </div>
               <p className="text-3xl font-bold tabular-nums" style={{ color: '#059669' }}>
@@ -762,3 +776,4 @@ export function DashboardPage() {
     </div>
   );
 }
+
