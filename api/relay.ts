@@ -365,6 +365,19 @@ export default async function handler(request: Request): Promise<Response> {
         return json({ ok: true });
       }
 
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+      // GET USAGE — global OpenAI token usage across all users/sessions ever
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+      case 'get-usage': {
+        const results = await redisPipeline([
+          ['GET', 'usage:promptTokens'],
+          ['GET', 'usage:completionTokens'],
+        ]);
+        const promptTokens = parseInt((results[0]?.result as string) || '0', 10);
+        const completionTokens = parseInt((results[1]?.result as string) || '0', 10);
+        return json({ promptTokens, completionTokens });
+      }
+
       default:
         return json({ error: 'Unknown action' }, 400);
     }
@@ -373,5 +386,6 @@ export default async function handler(request: Request): Promise<Response> {
     return json({ error: 'Internal server error', details: String(error) }, 500);
   }
 }
+
 
 
