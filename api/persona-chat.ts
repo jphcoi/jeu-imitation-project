@@ -2,6 +2,28 @@ export const config = { runtime: 'nodejs' };
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
+const KV_URL = process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+
+async function trackUsage(promptTokens: number, completionTokens: number): Promise<void> {
+  if (!KV_URL || !KV_TOKEN || (!promptTokens && !completionTokens)) return;
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${KV_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['INCRBY', 'usage:promptTokens', String(promptTokens)],
+        ['INCRBY', 'usage:completionTokens', String(completionTokens)],
+      ]),
+    });
+  } catch (error) {
+    console.error('Failed to track token usage:', error);
+  }
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -159,6 +181,7 @@ export default async function handler(request: Request): Promise<Response> {
     const data = await groqRes.json();
     const response = data.choices?.[0]?.message?.content ?? '';
     const usage = data.usage ?? null;
+    if (usage) await trackUsage(usage.prompt_tokens ?? 0, usage.completion_tokens ?? 0);
 
     return new Response(JSON.stringify({ response, usage }), {
       status: 200,
@@ -171,3 +194,4 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 }
+
