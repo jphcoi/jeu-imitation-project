@@ -17,6 +17,9 @@ async function redis(...args: string[]): Promise<unknown> {
     body: JSON.stringify(args),
   });
   const data = await res.json();
+  if (!res.ok || data.error) {
+    throw new Error(`Upstash error (${res.status}) on ${args[0]}: ${data.error || JSON.stringify(data)}`);
+  }
   return data.result;
 }
 
@@ -29,7 +32,15 @@ async function redisPipeline(commands: string[][]): Promise<{ result: unknown }[
     },
     body: JSON.stringify(commands),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(`Upstash pipeline error (${res.status}): ${JSON.stringify(data)}`);
+  }
+  const errored = Array.isArray(data) ? data.find((r: { error?: string }) => r.error) : null;
+  if (errored) {
+    throw new Error(`Upstash pipeline command error: ${errored.error}`);
+  }
+  return data;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -362,3 +373,4 @@ export default async function handler(request: Request): Promise<Response> {
     return json({ error: 'Internal server error', details: String(error) }, 500);
   }
 }
+
