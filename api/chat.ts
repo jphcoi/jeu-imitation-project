@@ -257,22 +257,36 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
     // Ajouter la dernière question
     messages.push({ role: 'user', content: lastQuestion });
 
-    const groqResponse = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages,
-        max_tokens: 150,
-        temperature: 0.9,
-        top_p: 0.95,
-        frequency_penalty: 0.6,
-        presence_penalty: 0.4,
-      }),
-    });
+    const openaiController = new AbortController();
+    const openaiTimeoutId = setTimeout(() => openaiController.abort(), 25000);
+    let groqResponse: Response;
+    try {
+      groqResponse = await fetch(OPENAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages,
+          max_tokens: 150,
+          temperature: 0.9,
+          top_p: 0.95,
+          frequency_penalty: 0.6,
+          presence_penalty: 0.4,
+        }),
+        signal: openaiController.signal,
+      });
+    } catch (fetchError) {
+      console.error('OpenAI fetch failed or timed out:', fetchError);
+      return new Response(JSON.stringify({ error: 'LLM API timeout', details: String(fetchError) }), {
+        status: 504,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } finally {
+      clearTimeout(openaiTimeoutId);
+    }
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text();
