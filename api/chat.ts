@@ -4,6 +4,28 @@ export const config = {
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
+const KV_URL = process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+
+async function trackUsage(promptTokens: number, completionTokens: number): Promise<void> {
+  if (!KV_URL || !KV_TOKEN || (!promptTokens && !completionTokens)) return;
+  try {
+    await fetch(`${KV_URL}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${KV_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['INCRBY', 'usage:promptTokens', String(promptTokens)],
+        ['INCRBY', 'usage:completionTokens', String(completionTokens)],
+      ]),
+    });
+  } catch (error) {
+    console.error('Failed to track token usage:', error);
+  }
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -263,6 +285,7 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
     const response = parts[0];
     const followUp = parts[1] ?? null;
     const usage = data.usage ?? null;
+    if (usage) await trackUsage(usage.prompt_tokens ?? 0, usage.completion_tokens ?? 0);
 
     return new Response(JSON.stringify({ response, followUp, usage }), {
       status: 200,
@@ -280,3 +303,4 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
     });
   }
 }
+
