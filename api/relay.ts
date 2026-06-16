@@ -4,8 +4,8 @@ export const config = {
 
 // 🔄🔄🔄 Upstash Redis REST helpers 🔄🔄🔄
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const UPSTASH_URL = process.env.KV_REST_API_URL;
+const UPSTASH_TOKEN = process.env.KV_REST_API_TOKEN;
 
 async function redis(...args: string[]): Promise<unknown> {
   const res = await fetch(`${UPSTASH_URL}`, {
@@ -373,4 +373,5 @@ export default async function handler(request: Request): Promise<Response> {
     return json({ error: 'Internal server error', details: String(error) }, 500);
   }
 }
+
 
