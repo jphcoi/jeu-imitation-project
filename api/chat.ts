@@ -10,6 +10,8 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 async function trackUsage(promptTokens: number, completionTokens: number): Promise<void> {
   if (!KV_URL || !KV_TOKEN || (!promptTokens && !completionTokens)) return;
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     await fetch(`${KV_URL}/pipeline`, {
       method: 'POST',
       headers: {
@@ -20,7 +22,9 @@ async function trackUsage(promptTokens: number, completionTokens: number): Promi
         ['INCRBY', 'usage:promptTokens', String(promptTokens)],
         ['INCRBY', 'usage:completionTokens', String(completionTokens)],
       ]),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
   } catch (error) {
     console.error('Failed to track token usage:', error);
   }
@@ -303,4 +307,3 @@ IMPORTANT: Français uniquement. Sois naturel(le), pas performatif(ve).`;
     });
   }
 }
-
