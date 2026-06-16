@@ -52,7 +52,7 @@ export function LobbyPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6"
-      style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+      style={{ background: BG, fontFamily: 'Inter, system-ui, sans-serif' }}
     >
       <div className="w-full max-w-sm">
         <div
@@ -110,3 +110,4 @@ export function LobbyPage() {
     </div>
   );
 }
+
