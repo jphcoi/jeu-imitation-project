@@ -160,19 +160,32 @@ export default async function handler(request: Request): Promise<Response> {
       }
     }
 
-    const groqRes = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages,
-        max_tokens: mode === 'extract' ? 400 : 200,
-        temperature: mode === 'extract' ? 0.1 : 0.85,
-      }),
-    });
+    const openaiController = new AbortController();
+    const openaiTimeoutId = setTimeout(() => openaiController.abort(), 25000);
+    let groqRes: Response;
+    try {
+      groqRes = await fetch(OPENAI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages,
+          max_tokens: mode === 'extract' ? 400 : 200,
+          temperature: mode === 'extract' ? 0.1 : 0.85,
+        }),
+        signal: openaiController.signal,
+      });
+    } catch (fetchError) {
+      return new Response(JSON.stringify({ error: 'LLM timeout', details: String(fetchError) }), {
+        status: 504,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
+    } finally {
+      clearTimeout(openaiTimeoutId);
+    }
 
     if (!groqRes.ok) {
       const err = await groqRes.text();
