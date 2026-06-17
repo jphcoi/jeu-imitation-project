@@ -1,5 +1,5 @@
 export const config = {
-  runtime: 'nodejs',
+  runtime: 'edge',
 };
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
