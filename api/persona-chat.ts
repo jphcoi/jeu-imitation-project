@@ -128,7 +128,7 @@ export default async function handler(request: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   }
@@ -189,7 +189,8 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (!groqRes.ok) {
       const err = await groqRes.text();
-      return new Response(JSON.stringify({ error: 'LLM error', details: err }), {
+      console.error('[persona-chat] OpenAI error', groqRes.status, err);
+      return new Response(JSON.stringify({ error: 'LLM error', status: groqRes.status, details: err }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
@@ -205,6 +206,7 @@ export default async function handler(request: Request): Promise<Response> {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error) {
+    console.error('[persona-chat] Internal error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error', details: String(error) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
