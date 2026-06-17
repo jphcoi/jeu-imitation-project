@@ -288,7 +288,7 @@ function ChatbotCreator({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'chat',
-          conversationHistory: updated.map(m => ({ content: m.content, isFromUser: m.isFromUser })),
+          conversationHistory: messages.map(m => ({ content: m.content, isFromUser: m.isFromUser })),
           userMessage: text,
         }),
       });
