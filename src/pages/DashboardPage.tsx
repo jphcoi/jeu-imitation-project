@@ -107,7 +107,7 @@ export function DashboardPage() {
         sessionId: v.sessionId,
         votedChat: v.votedChat,
         isCorrect: v.isCorrect,
-        justificationLength: v.justification.length,
+        justification: v.justification,
       })),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -550,7 +550,7 @@ export function DashboardPage() {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
-                      {['ID', 'Personna', 'IA dans', 'Messages', 'Date', 'Résultat'].map(h => (
+                      {['ID', 'Personna', 'IA dans', 'Messages', 'Date', 'Résultat', 'Justification'].map(h => (
                         <th key={h} className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>{h}</th>
                       ))}
                     </tr>
@@ -575,6 +575,12 @@ export function DashboardPage() {
                             ) : (
                               <span style={{ color: '#d97706' }}>En attente</span>
                             )}
+                          </td>
+                          <td className="px-5 py-3 text-xs" style={{ color: TEXT, maxWidth: '280px' }}>
+                            {vote?.justification
+                              ? <span title={vote.justification}>{vote.justification.length > 100 ? vote.justification.slice(0, 100) + '…' : vote.justification}</span>
+                              : <span style={{ color: MUTED }}>—</span>
+                            }
                           </td>
                         </tr>
                       );
