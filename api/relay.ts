@@ -225,7 +225,7 @@ export default async function handler(request: Request): Promise<Response> {
             const waitingData = JSON.parse(allEntries[i + 1]) as QueueEntry;
 
             if (waitingUserId === userId) continue;
-            if (Date.now() - waitingData.timestamp > 120_000) continue;
+            if (Date.now() - waitingData.timestamp > 300_000) continue;
 
             // Found a match
             const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -260,7 +260,7 @@ export default async function handler(request: Request): Promise<Response> {
         const entry = JSON.stringify({ userId, timestamp: Date.now(), schoolId, classId });
         await redisPipeline([
           ['HSET', queueKey, userId, entry],
-          ['EXPIRE', queueKey, '300'],
+          ['EXPIRE', queueKey, '600'],
         ]);
         return json({ status: 'waiting' });
       }
@@ -299,7 +299,7 @@ export default async function handler(request: Request): Promise<Response> {
               const waitingUserId = allEntries[i];
               const waitingData = JSON.parse(allEntries[i + 1]) as QueueEntry;
               if (waitingUserId === userId) continue;
-              if (Date.now() - waitingData.timestamp > 120_000) continue;
+              if (Date.now() - waitingData.timestamp > 300_000) continue;
 
               const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
               const hostIsEnqueteur = Math.random() > 0.5;
