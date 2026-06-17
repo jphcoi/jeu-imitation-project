@@ -273,9 +273,9 @@ export default async function handler(request: Request): Promise<Response> {
 
         // 🔄 No room code: we're polling from the generic queue 🔄
         if (!roomCode) {
+          // Check if someone already matched us
           const matchRoom = await redis('GET', `queue:match:${userId}`) as string | null;
           if (matchRoom) {
-            // Delete so repeat polls don't re-trigger onMatched
             await redis('DEL', `queue:match:${userId}`);
             const raw = await redis('GET', `room:${matchRoom}`) as string | null;
             if (raw) {
@@ -288,6 +288,46 @@ export default async function handler(request: Request): Promise<Response> {
               });
             }
           }
+
+          // Race-condition fix: also try to match against other waiting users.
+          // Handles the case where two users joined the queue simultaneously and
+          // both ended up waiting without being matched by join-queue.
+          const queueKey = 'queue:generic:v2';
+          const allEntries = await redis('HGETALL', queueKey) as string[] | null;
+          if (allEntries && allEntries.length > 0) {
+            for (let i = 0; i < allEntries.length; i += 2) {
+              const waitingUserId = allEntries[i];
+              const waitingData = JSON.parse(allEntries[i + 1]) as QueueEntry;
+              if (waitingUserId === userId) continue;
+              if (Date.now() - waitingData.timestamp > 120_000) continue;
+
+              const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+              const hostIsEnqueteur = Math.random() > 0.5;
+              const newRoom: Room = {
+                host: waitingUserId,
+                guest: userId,
+                status: 'playing',
+                roles: {
+                  [waitingUserId]: hostIsEnqueteur ? 'enqueteur' : 'enquete',
+                  [userId]: hostIsEnqueteur ? 'enquete' : 'enqueteur',
+                },
+                createdAt: Date.now(),
+              };
+              await redisPipeline([
+                ['SET', `room:${newRoomCode}`, JSON.stringify(newRoom), 'EX', '600'],
+                ['SET', `queue:match:${waitingUserId}`, newRoomCode, 'EX', '120'],
+                ['HDEL', queueKey, waitingUserId],
+                ['HDEL', queueKey, userId],
+              ]);
+              return json({
+                status: 'matched',
+                roomCode: newRoomCode,
+                role: newRoom.roles[userId],
+                partnerId: waitingUserId,
+              });
+            }
+          }
+
           return json({ status: 'waiting' });
         }
 
