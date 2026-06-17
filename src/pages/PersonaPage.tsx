@@ -293,10 +293,13 @@ function ChatbotCreator({
         }),
       });
       const data = await res.json();
+      if (!res.ok) console.error('[persona-chat] API error', res.status, data);
       if (res.ok && data.usage) dispatch({ type: 'ADD_TOKEN_USAGE', payload: { promptTokens: data.usage.prompt_tokens, completionTokens: data.usage.completion_tokens } });
       setMessages(prev => [...prev, {
         id: uuidv4(),
-        content: res.ok ? data.response : "Désolé, je n'arrive pas à répondre. Réessaie !",
+        content: res.ok
+          ? (data.response || "Réponse vide reçue")
+          : `Erreur ${res.status} : ${data.error ?? "inconnue"}${data.details ? " — " + String(data.details).slice(0, 120) : ""}`,
         isFromUser: false,
       }]);
     } catch {
