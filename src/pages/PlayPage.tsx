@@ -230,7 +230,7 @@ export function PlayPage() {
     setRoomCode(code);
     setWaitingMode(mode);
     setPhase('waiting');
-    setWaitingCountdown(60);
+    setWaitingCountdown(180);
     setWaitingElapsed(0);
     if (mode === 'private') multiplayer.createPrivateRoom(code);
     else multiplayer.joinGenericQueue(currentUser?.schoolId, currentUser?.classId);
