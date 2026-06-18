@@ -124,23 +124,26 @@ export function DashboardPage() {
       statistics: { totalSessions: completedSessions.length, totalVotes, correctVotes, avgReliability, avgCredibility },
       enqueteurScores: visibleEnqueteurScores,
       personaScores: visiblePersonaScores,
-      sessions: completedSessions.map(s => ({
-        id: s.id,
-        personaIdA: s.personaIdA,
-        personaIdB: s.personaIdB,
-        gameMode: s.gameMode,
-        startTime: s.startTime,
-        endTime: s.endTime,
-        aiWasIn: s.aiIsInChat,
-        messageCountA: s.messages.chatA.length,
-        messageCountB: s.messages.chatB.length,
-      })),
-      votes: visibleVotes.map(v => ({
-        sessionId: v.sessionId,
-        votedChat: v.votedChat,
-        isCorrect: v.isCorrect,
-        justification: v.justification,
-      })),
+      sessions: completedSessions.map(s => {
+        const vote = visibleVotes.find(v => v.sessionId === s.id);
+        const pA = personas.find(p => p.id === s.personaIdA);
+        const pB = personas.find(p => p.id === s.personaIdB);
+        const enqueteur = knownUsers.find(u => u.id === s.enqueteurId);
+        return {
+          id: s.id,
+          date: new Date(s.startTime).toLocaleDateString('fr-FR'),
+          enqueteur: enqueteur?.pseudo || s.enqueteurId,
+          personaA: pA?.name || s.personaIdA,
+          personaB: pB?.name || s.personaIdB,
+          gameMode: s.gameMode,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          aiWasIn: s.aiIsInChat,
+          chatA: s.messages.chatA.map(m => ({ from: m.isFromAI ? (pA?.name || 'IA') : (enqueteur?.pseudo || 'Enquêteur'), text: m.content })),
+          chatB: s.messages.chatB.map(m => ({ from: m.isFromAI ? (pB?.name || 'IA') : (enqueteur?.pseudo || 'Enquêteur'), text: m.content })),
+          vote: vote ? { votedChat: vote.votedChat, correct: vote.isCorrect, justification: vote.justification } : null,
+        };
+      }),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -151,13 +154,129 @@ export function DashboardPage() {
     URL.revokeObjectURL(url);
   };
 
+  const exportConversationsTXT = () => {
+    const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    let doc = `HISTORIQUE DES CONVERSATIONS — JEU DE L'IMITATION\n`;
+    doc += `Exporté le ${dateStr}\n`;
+    doc += `${'='.repeat(64)}\n\n`;
+
+    if (completedSessions.length === 0) {
+      doc += 'Aucune session terminée.\n';
+    } else {
+      completedSessions.forEach((session, idx) => {
+        const vote = visibleVotes.find(v => v.sessionId === session.id);
+        const pA = personas.find(p => p.id === session.personaIdA);
+        const pB = personas.find(p => p.id === session.personaIdB);
+        const enqueteur = knownUsers.find(u => u.id === session.enqueteurId);
+        const sessionDate = new Date(session.startTime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        doc += `SESSION ${idx + 1} — ${sessionDate}\n`;
+        doc += `${'-'.repeat(64)}\n`;
+        doc += `Enquêteur : ${enqueteur?.pseudo || session.enqueteurId}\n`;
+        doc += `Persona A : ${pA?.name || '?'}${pA ? `, ${pA.age} ans` : ''}\n`;
+        doc += `Persona B : ${pB?.name || '?'}${pB ? `, ${pB.age} ans` : ''}\n`;
+        doc += `IA dans   : Chat ${session.aiIsInChat}\n\n`;
+
+        const labelA = session.aiIsInChat === 'A' || session.aiIsInChat === 'both' ? '[ CHAT A — IA ]' : '[ CHAT A — HUMAIN ]';
+        doc += `${labelA}\n`;
+        if (session.messages.chatA.length === 0) {
+          doc += '  (aucun message)\n';
+        } else {
+          session.messages.chatA.forEach(msg => {
+            const sender = msg.isFromAI ? (pA?.name || 'IA') : (enqueteur?.pseudo || 'Enquêteur');
+            doc += `  ${sender} : ${msg.content}\n`;
+          });
+        }
+        doc += '\n';
+
+        const labelB = session.aiIsInChat === 'B' || session.aiIsInChat === 'both' ? '[ CHAT B — IA ]' : '[ CHAT B — HUMAIN ]';
+        doc += `${labelB}\n`;
+        if (session.messages.chatB.length === 0) {
+          doc += '  (aucun message)\n';
+        } else {
+          session.messages.chatB.forEach(msg => {
+            const sender = msg.isFromAI ? (pB?.name || 'IA') : (enqueteur?.pseudo || 'Enquêteur');
+            doc += `  ${sender} : ${msg.content}\n`;
+          });
+        }
+        doc += '\n';
+
+        if (vote) {
+          const verdict = vote.isCorrect
+            ? `Chat ${vote.votedChat} voté comme IA — CORRECT ✓`
+            : `Chat ${vote.votedChat} voté comme IA — INCORRECT ✗ (l'IA était dans Chat ${session.aiIsInChat})`;
+          doc += `VERDICT      : ${verdict}\n`;
+          doc += `JUSTIFICATION: ${vote.justification || '(aucune)'}\n`;
+        } else {
+          doc += `VERDICT      : Aucun vote enregistré\n`;
+        }
+
+        doc += `\n${'='.repeat(64)}\n\n`;
+      });
+    }
+
+    const blob = new Blob([doc], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversations-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportConversationsCSV = () => {
+    const headers = ['Session', 'Date', 'Enquêteur', 'Persona A', 'Persona B', 'IA dans', 'Chat', 'Expéditeur', 'Type', 'Message', 'Vote (chat)', 'Vote correct', 'Justification'];
+    const rows: string[][] = [];
+
+    completedSessions.forEach((session, idx) => {
+      const vote = visibleVotes.find(v => v.sessionId === session.id);
+      const pA = personas.find(p => p.id === session.personaIdA);
+      const pB = personas.find(p => p.id === session.personaIdB);
+      const enqueteur = knownUsers.find(u => u.id === session.enqueteurId);
+      const date = new Date(session.startTime).toLocaleDateString('fr-FR');
+      const sessionNum = String(idx + 1);
+      const votedChat = vote?.votedChat ?? '';
+      const correct = vote ? (vote.isCorrect ? 'Oui' : 'Non') : '';
+      const justification = (vote?.justification ?? '').replace(/"/g, '""');
+
+      const addMsgs = (msgs: typeof session.messages.chatA, chat: 'A' | 'B') => {
+        msgs.forEach(msg => {
+          const persona = chat === 'A' ? pA : pB;
+          const sender = msg.isFromAI ? (persona?.name || 'IA') : (enqueteur?.pseudo || 'Enquêteur');
+          rows.push([
+            sessionNum, date,
+            enqueteur?.pseudo || '',
+            pA?.name || '', pB?.name || '',
+            session.aiIsInChat, chat, sender,
+            msg.isFromAI ? 'IA' : 'Humain',
+            `"${msg.content.replace(/"/g, '""')}"`,
+            votedChat, correct,
+            `"${justification}"`,
+          ]);
+        });
+      };
+
+      addMsgs(session.messages.chatA, 'A');
+      addMsgs(session.messages.chatB, 'B');
+    });
+
+    const csv = '﻿' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `conversations-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const exportCSV = () => {
     const headers = ['Pseudo', 'Sessions', 'Détections correctes', 'Points', 'Bonus', 'Fiabilité %'];
     const rows = visibleEnqueteurScores.map(s => [
       s.pseudo, s.totalSessions, s.correctDetections, s.totalPoints, s.bonusPoints, s.reliabilityIndex.toFixed(1),
     ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = '﻿' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -819,11 +938,43 @@ export function DashboardPage() {
         {/* Export */}
         {activeTab === 'export' && (
           <div className="space-y-4">
+            {/* Conversations */}
+            <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+              <h3 className="text-sm font-bold mb-1" style={{ color: TEXT }}>Historique des conversations</h3>
+              <p className="text-xs mb-4" style={{ color: MUTED }}>
+                Transcriptions complètes (Chat A + Chat B), verdict (chat voté comme IA, correct ou non) et justification de l'enquêteur.
+                {completedSessions.length > 0 && <span className="ml-1 font-medium" style={{ color: TEXT }}>{completedSessions.length} session{completedSessions.length !== 1 ? 's' : ''} disponible{completedSessions.length !== 1 ? 's' : ''}.</span>}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={exportConversationsTXT}
+                  disabled={completedSessions.length === 0}
+                  className="py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+                  style={{ background: TEXT }}
+                  onMouseEnter={e => { if (completedSessions.length > 0) e.currentTarget.style.background = '#374151'; }}
+                  onMouseLeave={e => (e.currentTarget.style.background = TEXT)}
+                >
+                  Télécharger .txt (lisible)
+                </button>
+                <button
+                  onClick={exportConversationsCSV}
+                  disabled={completedSessions.length === 0}
+                  className="py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                  style={{ background: PANEL, border: `1px solid ${BORDER}`, color: '#0891b2' }}
+                  onMouseEnter={e => { if (completedSessions.length > 0) e.currentTarget.style.background = '#e0f2fe'; }}
+                  onMouseLeave={e => (e.currentTarget.style.background = PANEL)}
+                >
+                  Télécharger .csv (Excel)
+                </button>
+              </div>
+            </div>
+
+            {/* Other exports */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
                 <h3 className="text-sm font-bold mb-2" style={{ color: TEXT }}>Export JSON (complet)</h3>
                 <p className="text-xs mb-4" style={{ color: MUTED }}>
-                  Toutes les données : sessions, votes, scores, statistiques.
+                  Toutes les données brutes : sessions avec messages, votes, scores.
                 </p>
                 <button
                   onClick={exportData}
@@ -836,9 +987,9 @@ export function DashboardPage() {
                 </button>
               </div>
               <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-                <h3 className="text-sm font-bold mb-2" style={{ color: TEXT }}>Export CSV (enquêteurs)</h3>
+                <h3 className="text-sm font-bold mb-2" style={{ color: TEXT }}>Export CSV (scores enquêteurs)</h3>
                 <p className="text-xs mb-4" style={{ color: MUTED }}>
-                  Tableau des scores. Compatible Excel / Google Sheets.
+                  Tableau des scores par élève. Compatible Excel / Google Sheets.
                 </p>
                 <button
                   onClick={exportCSV}
@@ -851,6 +1002,7 @@ export function DashboardPage() {
                 </button>
               </div>
             </div>
+
             <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid rgba(217,119,6,0.3)` }}>
               <h3 className="text-sm font-bold mb-2" style={{ color: '#d97706' }}>Conformité RGPD</h3>
               <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
