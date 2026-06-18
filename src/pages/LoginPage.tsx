@@ -25,59 +25,7 @@ function EyeIcon({ open }: { open: boolean }) {
       <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
       <line x1="1" y1="1" x2="23" y2="23" />
     </svg>
-  );
-}
-
-function ConfirmModal({
-  pseudo,
-  classCode,
-  onConfirm,
-  onCancel,
-}: {
-  pseudo: string;
-  classCode: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50 p-6"
-      style={{ background: 'rgba(0,0,0,0.45)' }}
-      onClick={onCancel}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl p-7"
-        style={{ background: CARD, border: `1px solid ${BORDER}` }}
-        onClick={e => e.stopPropagation()}
-      >
-        <h2 className="text-base font-bold mb-1" style={{ color: TEXT }}>Confirmer la création</h2>
-        <p className="text-sm mb-5" style={{ color: MUTED }}>
-          Votre compte sera créé. Vous devrez ensuite vous connecter manuellement.
-        </p>
-        <div className="rounded-xl px-4 py-3 mb-5 space-y-1" style={{ background: BG, border: `1px solid ${BORDER}` }}>
-          <p className="text-xs" style={{ color: MUTED }}>Pseudo : <span className="font-semibold" style={{ color: TEXT }}>{pseudo}</span></p>
-          <p className="text-xs" style={{ color: MUTED }}>Classe : <span className="font-semibold" style={{ color: TEXT }}>{classCode}</span></p>
-          <p className="text-xs" style={{ color: MUTED }}>Mot de passe : <span className="font-semibold" style={{ color: TEXT }}>votre date de naissance (ddmmaaaa)</span></p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: ACCENT }}
-          >
-            Confirmer
-          </button>
-          <button
-            onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: BG, border: `1px solid ${BORDER}`, color: MUTED }}
-          >
-            Annuler
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  ) ;
 }
 
 export function LoginPage() {
@@ -90,6 +38,7 @@ export function LoginPage() {
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const { login, register } = useGame();
   const navigate = useNavigate();
@@ -101,23 +50,17 @@ export function LoginPage() {
     setRole(newRole);
     setMode('login');
     setError(null);
+    setSuccessMessage(null);
     setPseudo('');
     setPassword('');
     setShowPassword(false);
     setAccessCode('');
   };
 
-  const validateRegister = (): boolean => {
-    if (role !== 'admin' && !classCode.trim()) { setError('Le code de classe est obligatoire.'); return false; }
-    if (!pseudo.trim()) { setError('Entrez un pseudo.'); return false; }
-    if (!password.trim()) { setError('Entrez un mot de passe.'); return false; }
-    if (!/^\d{8}$/.test(password.trim())) { setError('Le mot de passe doit être votre date de naissance au format jjmmaaaa (ex : 01012005).'); return false; }
-    return true;
-  };
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
 
     if (role !== 'admin' && !classCode.trim()) {
       setError('Le code de classe est obligatoire.');
@@ -144,28 +87,43 @@ export function LoginPage() {
     if (!password.trim()) { setError('Entrez un mot de passe.'); return; }
 
     if (mode === 'register') {
-      if (!validateRegister()) return;
-      const result = register(pseudo.trim(), password.trim(), classCode.trim() || undefined);
-      if (result === 'already_exists') {
-        setError('Ce pseudo existe déjà dans cette classe. Connectez-vous.');
+      if (!/^\d{8}$/.test(password.trim())) {
+        setError('Le mot de passe doit être votre date de naissance : 8 chiffres sans slash (ex : 01012005).');
         return;
       }
+      // Show confirmation modal — registration happens only on confirm
       setShowConfirm(true);
       return;
     }
 
+    // Login
     const result = login(pseudo.trim(), 'student', password.trim(), classCode.trim() || undefined);
-    if (result === 'not_found') { setError("Compte introuvable. Créez votre compte d'abord."); return; }
-    if (result === 'wrong_password') { setError('Mot de passe incorrect.'); return; }
+    if (result === 'not_found') {
+      setError(`Pseudo introuvable dans la classe "${classCode.trim() || '(aucune)'}". Vérifiez le code de classe et le pseudo.`);
+      return;
+    }
+    if (result === 'wrong_password') {
+      setError('Mot de passe incorrect.');
+      return;
+    }
     navigate('/');
   };
 
   const handleConfirmRegister = () => {
+    // Registration happens here, not on form submit
+    const result = register(pseudo.trim(), password.trim(), classCode.trim() || undefined);
     setShowConfirm(false);
-    setPseudo('');
-    setPassword('');
+    if (result === 'already_exists') {
+      setError('Ce pseudo existe déjà dans cette classe. Connectez-vous.');
+      setMode('login');
+      setPassword('');
+      return;
+    }
+    // Success: switch to login mode, keep classCode and pseudo, clear password only
     setMode('login');
-    navigate('/login');
+    setPassword('');
+    setShowPassword(false);
+    setSuccessMessage(`Compte créé ! Entrez maintenant votre mot de passe pour vous connecter.`);
   };
 
   const roles: { value: Role; label: string }[] = [
@@ -176,13 +134,57 @@ export function LoginPage() {
 
   return (
     <>
+      {/* Confirmation modal */}
       {showConfirm && (
-        <ConfirmModal
-          pseudo={pseudo}
-          classCode={classCode}
-          onConfirm={handleConfirmRegister}
-          onCancel={() => setShowConfirm(false)}
-        />
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50 p-6"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setShowConfirm(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-7"
+            style={{ background: CARD, border: `1px solid ${BORDER}` }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold mb-1" style={{ color: TEXT }}>Confirmer la création</h2>
+            <p className="text-sm mb-5" style={{ color: MUTED }}>
+              Vérifiez vos informations avant de créer votre compte.
+            </p>
+            <div className="rounded-xl px-4 py-3 mb-5 space-y-2" style={{ background: BG, border: `1px solid ${BORDER}` }}>
+              <div className="flex justify-between text-xs">
+                <span style={{ color: MUTED }}>Pseudo</span>
+                <span className="font-semibold" style={{ color: TEXT }}>{pseudo.trim()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span style={{ color: MUTED }}>Classe</span>
+                <span className="font-semibold" style={{ color: TEXT }}>{classCode.trim() || '—'}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span style={{ color: MUTED }}>Mot de passe</span>
+                <span className="font-mono font-semibold" style={{ color: '#059669' }}>{password.trim()}</span>
+              </div>
+            </div>
+            <p className="text-xs mb-5" style={{ color: MUTED }}>
+              Notez bien votre mot de passe. Après confirmation vous devrez le saisir pour vous connecter.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmRegister}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
+                style={{ background: ACCENT }}
+              >
+                Confirmer
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: BG, border: `1px solid ${BORDER}`, color: MUTED }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div
@@ -206,7 +208,7 @@ export function LoginPage() {
                 <input
                   type="text"
                   value={classCode}
-                  onChange={e => setClassCode(e.target.value.toUpperCase())}
+                  onChange={e => { setClassCode(e.target.value.toUpperCase()); setError(null); setSuccessMessage(null); }}
                   className="retro-input"
                   placeholder={role === 'admin' ? 'Optionnel' : 'Ex: TERMINALE-S1'}
                   autoFocus
@@ -246,7 +248,7 @@ export function LoginPage() {
                     <input
                       type="text"
                       value={pseudo}
-                      onChange={e => { setPseudo(e.target.value); setError(null); }}
+                      onChange={e => { setPseudo(e.target.value); setError(null); setSuccessMessage(null); }}
                       className="retro-input"
                       placeholder="Votre pseudo..."
                     />
@@ -263,9 +265,10 @@ export function LoginPage() {
                             : e.target.value;
                           setPassword(val);
                           setError(null);
+                          setSuccessMessage(null);
                         }}
                         className="retro-input pr-10"
-                        placeholder={mode === 'register' ? 'jjmmaaaa (ex : 01012005)' : '••••••••'}
+                        placeholder={mode === 'register' ? 'jjmmaaaa  ex : 01012005' : '••••••••'}
                         inputMode={mode === 'register' ? 'numeric' : undefined}
                         maxLength={mode === 'register' ? 8 : undefined}
                       />
@@ -281,7 +284,7 @@ export function LoginPage() {
                     </div>
                     {mode === 'register' && (
                       <p className="mt-1.5 text-xs" style={{ color: MUTED }}>
-                        Votre mot de passe est votre date de naissance au format <strong>jjmmaaaa</strong> — 8 chiffres, sans slash (ex&nbsp;: 01012005).
+                        8 chiffres, votre date de naissance sans slash — ex&nbsp;: <strong>01012005</strong>
                       </p>
                     )}
                   </div>
@@ -320,6 +323,13 @@ export function LoginPage() {
                 </div>
               )}
 
+              {/* Success banner */}
+              {successMessage && (
+                <div className="rounded-xl px-4 py-3" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <p className="text-xs font-medium" style={{ color: '#15803d' }}>{successMessage}</p>
+                </div>
+              )}
+
               {/* Error */}
               {error && (
                 <p className="text-xs" style={{ color: '#b91c1c' }}>{error}</p>
@@ -344,7 +354,7 @@ export function LoginPage() {
                       Vous n'avez pas encore de compte ?{' '}
                       <button
                         type="button"
-                        onClick={() => { setMode('register'); setError(null); setPassword(''); }}
+                        onClick={() => { setMode('register'); setError(null); setSuccessMessage(null); setPassword(''); }}
                         className="font-medium underline"
                         style={{ color: ACCENT }}
                       >
@@ -356,7 +366,7 @@ export function LoginPage() {
                       Déjà un compte ?{' '}
                       <button
                         type="button"
-                        onClick={() => { setMode('login'); setError(null); setPassword(''); }}
+                        onClick={() => { setMode('login'); setError(null); setSuccessMessage(null); setPassword(''); }}
                         className="font-medium underline"
                         style={{ color: ACCENT }}
                       >
