@@ -25,7 +25,7 @@ function TeacherRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (state.currentUser.role !== 'teacher') {
+  if (state.currentUser.role !== 'teacher' && state.currentUser.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
 
@@ -47,7 +47,7 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            {state.currentUser?.role === 'teacher' ? <Navigate to="/dashboard" replace /> : <HomePage />}
+            {(state.currentUser?.role === 'teacher' || state.currentUser?.role === 'admin') ? <Navigate to="/dashboard" replace /> : <HomePage />}
           </ProtectedRoute>
         }
       />
