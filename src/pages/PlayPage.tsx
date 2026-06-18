@@ -26,9 +26,9 @@ function randomGreeting() { return OPENING_GREETINGS[Math.floor(Math.random() * 
 
 function computeTypingDelay(responseText: string): number {
   const charCount = responseText.length;
-  const base = 400 + Math.random() * 600;
-  const msPerChar = 15 + Math.random() * 10;
-  return Math.min(base + charCount * msPerChar, 4000);
+  const thinkTime = 700 + Math.random() * 900;   // 0.7–1.6s pause before typing
+  const msPerChar = 35 + Math.random() * 35;      // 35–70ms/char — scales with length
+  return Math.min(thinkTime + charCount * msPerChar, 14000); // cap at 14s for very long messages
 }
 
 export function PlayPage() {
