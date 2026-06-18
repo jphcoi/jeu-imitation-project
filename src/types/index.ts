@@ -1,9 +1,10 @@
 export interface User {
   id: string;
   pseudo: string;
-  role: 'student' | 'teacher';
+  role: 'student' | 'teacher' | 'admin';
   schoolId?: string;
   classId?: string;
+  password?: string;
   createdAt: Date;
 }
 
