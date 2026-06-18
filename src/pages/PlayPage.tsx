@@ -191,8 +191,8 @@ export function PlayPage() {
     dispatch({ type: 'ADD_SESSION', payload: newSession });
     setPhase('playing');
     start();
-    setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), 2000 + Math.random() * 4000);
-    setTimeout(() => setMessagesB([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), 2000 + Math.random() * 4000);
+    if (Math.random() < 0.5) setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), 2000 + Math.random() * 4000);
+    if (Math.random() < 0.5) setTimeout(() => setMessagesB([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), 2000 + Math.random() * 4000);
   };
 
   const startMultiplayerGame = () => {
@@ -214,12 +214,14 @@ export function PlayPage() {
     if (waitingIntervalRef.current) clearInterval(waitingIntervalRef.current);
     setPhase('playing');
     start();
-    // Only the AI chat sends an opening message; human player will type on their own
-    const aiDelay = 2000 + Math.random() * 4000;
-    if (aiChat === 'A') {
-      setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), aiDelay);
-    } else {
-      setTimeout(() => setMessagesB([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), aiDelay);
+    // AI chat sometimes sends an opening greeting, sometimes waits for the human to go first
+    if (Math.random() < 0.5) {
+      const aiDelay = 2000 + Math.random() * 4000;
+      if (aiChat === 'A') {
+        setTimeout(() => setMessagesA([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-a', timestamp: new Date(), isFromAI: true }]), aiDelay);
+      } else {
+        setTimeout(() => setMessagesB([{ id: uuidv4(), content: randomGreeting(), senderId: 'ai-b', timestamp: new Date(), isFromAI: true }]), aiDelay);
+      }
     }
   };
 
