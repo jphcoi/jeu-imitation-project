@@ -356,22 +356,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
            norm(u.classId) === norm(classId)
     );
 
-    if (!existingUser) {
-      // Auto-create account on first login — open access for testing
-      const newUser: User = {
-        id: uuidv4(),
-        pseudo: pseudo.trim(),
-        role: 'student',
-        classId: norm(classId) || undefined,
-        createdAt: new Date(),
-      };
-      dispatch({ type: 'SET_USER', payload: newUser });
-      return 'success';
-    }
-    // Only enforce password if the account has one AND the user typed something
-    if (existingUser.password && password?.trim() && existingUser.password !== password.trim()) {
-      return 'wrong_password';
-    }
+    if (!existingUser) return 'not_found';
+    if (existingUser.password && existingUser.password !== password?.trim()) return 'wrong_password';
     dispatch({ type: 'SET_USER', payload: { ...existingUser } });
     return 'success';
   };
