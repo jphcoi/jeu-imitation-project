@@ -84,9 +84,9 @@ export function LoginPage() {
     }
 
     if (!pseudo.trim()) { setError('Entrez un pseudo.'); return; }
+    if (!password.trim()) { setError('Entrez un mot de passe.'); return; }
 
     if (mode === 'register') {
-      if (!password.trim()) { setError('Entrez un mot de passe.'); return; }
       if (!/^\d{8}$/.test(password.trim())) {
         setError('Le mot de passe doit être votre date de naissance : 8 chiffres sans slash (ex : 01012005).');
         return;
@@ -254,9 +254,7 @@ export function LoginPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>
-                      Mot de passe{mode === 'login' && <span className="font-normal text-xs ml-1" style={{ color: MUTED }}>(optionnel)</span>}
-                    </label>
+                    <label className="block text-sm font-medium mb-2" style={{ color: TEXT }}>Mot de passe</label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
