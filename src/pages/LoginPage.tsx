@@ -257,11 +257,17 @@ export function LoginPage() {
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={password}
-                        onChange={e => { setPassword(e.target.value.replace(/\D/g, '').slice(0, 8)); setError(null); }}
+                        onChange={e => {
+                          const val = mode === 'register'
+                            ? e.target.value.replace(/\D/g, '').slice(0, 8)
+                            : e.target.value;
+                          setPassword(val);
+                          setError(null);
+                        }}
                         className="retro-input pr-10"
                         placeholder={mode === 'register' ? 'jjmmaaaa (ex : 01012005)' : '••••••••'}
-                        inputMode="numeric"
-                        maxLength={8}
+                        inputMode={mode === 'register' ? 'numeric' : undefined}
+                        maxLength={mode === 'register' ? 8 : undefined}
                       />
                       <button
                         type="button"
