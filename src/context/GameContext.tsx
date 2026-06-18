@@ -6,6 +6,7 @@ import { DEFAULT_PERSONAS } from '../utils/defaultPersonas';
 
 type Action =
   | { type: 'SET_USER'; payload: User | null }
+  | { type: 'REGISTER_USER'; payload: User }
   | { type: 'LOGOUT' }
   | { type: 'ADD_PERSONA'; payload: Persona }
   | { type: 'UPDATE_PERSONA'; payload: Persona }
@@ -180,11 +181,18 @@ function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'SET_USER': {
       if (!action.payload) return { ...state, currentUser: null };
-      // Add to known users if not already there
       const exists = state.knownUsers.some(u => u.id === action.payload!.id);
       return {
         ...state,
         currentUser: action.payload,
+        knownUsers: exists ? state.knownUsers : [...state.knownUsers, action.payload],
+      };
+    }
+
+    case 'REGISTER_USER': {
+      const exists = state.knownUsers.some(u => u.id === action.payload.id);
+      return {
+        ...state,
         knownUsers: exists ? state.knownUsers : [...state.knownUsers, action.payload],
       };
     }
@@ -357,7 +365,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     );
     if (exists) return 'already_exists';
     const user: User = { id: uuidv4(), pseudo, role: 'student', password, classId, createdAt: new Date() };
-    dispatch({ type: 'SET_USER', payload: user });
+    dispatch({ type: 'REGISTER_USER', payload: user });
     return 'success';
   };
 
