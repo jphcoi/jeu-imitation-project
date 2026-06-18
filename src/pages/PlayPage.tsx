@@ -656,6 +656,7 @@ export function PlayPage() {
                   <input type="text" value={enqueteInput}
                     onChange={e => { setEnqueteInput(e.target.value); multiplayer.sendTyping(); }}
                     onKeyDown={e => e.key === 'Enter' && sendEnqueteMessage()}
+                    onPaste={e => e.preventDefault()}
                     placeholder="Tapez votre réponse..."
                     className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
                     style={{ background: PANEL, border: `1px solid ${BORDER}`, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}
@@ -945,6 +946,7 @@ function ChatPanel({
           <input type="text" value={input}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && onSend()}
+            onPaste={e => e.preventDefault()}
             placeholder="Posez votre question..." disabled={isExpired}
             className="flex-1 px-3.5 py-2 rounded-xl text-sm outline-none"
             style={{ background: PANEL, border: `1px solid ${BORDER}`, color: TEXT, fontFamily: 'Inter, system-ui, sans-serif' }}
