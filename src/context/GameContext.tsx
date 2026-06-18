@@ -349,22 +349,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return 'success';
     }
 
+    const norm = (s: string | undefined) => (s ?? '').trim().toUpperCase();
     const existingUser = state.knownUsers.find(
-      u => u.pseudo.toLowerCase() === pseudo.toLowerCase() && u.classId === (classId || undefined)
+      u => u.role === 'student' &&
+           u.pseudo.toLowerCase().trim() === pseudo.toLowerCase().trim() &&
+           norm(u.classId) === norm(classId)
     );
 
     if (!existingUser) return 'not_found';
-    if (existingUser.password && existingUser.password !== password) return 'wrong_password';
+    if (existingUser.password && existingUser.password !== password?.trim()) return 'wrong_password';
     dispatch({ type: 'SET_USER', payload: { ...existingUser } });
     return 'success';
   };
 
   const register = (pseudo: string, password: string, classId?: string): 'success' | 'already_exists' => {
+    const norm = (s: string | undefined) => (s ?? '').trim().toUpperCase();
     const exists = state.knownUsers.some(
-      u => u.pseudo.toLowerCase() === pseudo.toLowerCase() && u.classId === (classId || undefined)
+      u => u.role === 'student' &&
+           u.pseudo.toLowerCase().trim() === pseudo.toLowerCase().trim() &&
+           norm(u.classId) === norm(classId)
     );
     if (exists) return 'already_exists';
-    const user: User = { id: uuidv4(), pseudo, role: 'student', password, classId, createdAt: new Date() };
+    const normalizedClassId = classId?.trim().toUpperCase() || undefined;
+    const user: User = { id: uuidv4(), pseudo: pseudo.trim(), role: 'student', password: password.trim(), classId: normalizedClassId, createdAt: new Date() };
     dispatch({ type: 'REGISTER_USER', payload: user });
     return 'success';
   };
