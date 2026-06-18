@@ -13,8 +13,39 @@ export function DashboardPage() {
   const { state, dispatch, logout } = useGame();
   const { currentUser, sessions, votes, personas, enqueteurScores, personaScores, knownUsers } = state;
 
+  const isAdmin = currentUser?.role === 'admin';
+  const classFilter = isAdmin ? null : (currentUser?.classId ?? null);
+
+  // Filter data to current class for teachers; admins see everything
+  const visibleStudents = knownUsers.filter(u =>
+    u.role === 'student' && (classFilter === null || u.classId === classFilter)
+  );
+  const visibleStudentIds = new Set(visibleStudents.map(u => u.id));
+
+  const visiblePersonas = classFilter
+    ? personas.filter(p => {
+        const creator = knownUsers.find(u => u.id === p.createdBy);
+        return creator?.classId === classFilter;
+      })
+    : personas;
+  const visiblePersonaIds = new Set(visiblePersonas.map(p => p.id));
+
+  const visibleSessions = sessions.filter(s =>
+    s.status === 'completed' && (classFilter === null || visibleStudentIds.has(s.enqueteurId))
+  );
+  const visibleSessionIds = new Set(visibleSessions.map(s => s.id));
+
+  const visibleVotes = votes.filter(v => classFilter === null || visibleSessionIds.has(v.sessionId));
+
+  const visibleEnqueteurScores = enqueteurScores.filter(s =>
+    classFilter === null || visibleStudentIds.has(s.userId)
+  );
+  const visiblePersonaScores = personaScores.filter(s =>
+    classFilter === null || visiblePersonaIds.has(s.personaId)
+  );
+
   const [globalUsage, setGlobalUsage] = useState<{ promptTokens: number; completionTokens: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'sessions' | 'personas' | 'export'>('overview');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
@@ -32,6 +63,7 @@ export function DashboardPage() {
   };
 
   useEffect(() => {
+    if (!isAdmin) return;
     fetch('/api/relay', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -42,22 +74,22 @@ export function DashboardPage() {
         if (typeof data.promptTokens === 'number') setGlobalUsage(data);
       })
       .catch(() => {});
-  }, []);
+  }, [isAdmin]);
 
   const estimatedCostUSD = ((globalUsage?.promptTokens ?? 0) * 0.00000015 + (globalUsage?.completionTokens ?? 0) * 0.0000006);
 
-  const completedSessions = sessions.filter(s => s.status === 'completed');
-  const totalVotes = votes.length;
-  const correctVotes = votes.filter(v => v.isCorrect).length;
-  const avgReliability = enqueteurScores.length > 0
-    ? enqueteurScores.reduce((acc, s) => acc + s.reliabilityIndex, 0) / enqueteurScores.length
+  const completedSessions = visibleSessions;
+  const totalVotes = visibleVotes.length;
+  const correctVotes = visibleVotes.filter(v => v.isCorrect).length;
+  const avgReliability = visibleEnqueteurScores.length > 0
+    ? visibleEnqueteurScores.reduce((acc, s) => acc + s.reliabilityIndex, 0) / visibleEnqueteurScores.length
     : 0;
-  const avgCredibility = personaScores.length > 0
-    ? personaScores.reduce((acc, s) => acc + s.credibilityIndex, 0) / personaScores.length
+  const avgCredibility = visiblePersonaScores.length > 0
+    ? visiblePersonaScores.reduce((acc, s) => acc + s.credibilityIndex, 0) / visiblePersonaScores.length
     : 0;
 
-  // Personas ranked by convincingness (highest credibility = fooled the most players)
-  const rankedPersonas = personaScores
+  // Personas ranked by convincingness
+  const rankedPersonas = visiblePersonaScores
     .filter(s => s.totalSessions > 0)
     .map(s => {
       const persona = personas.find(p => p.id === s.personaId);
@@ -66,9 +98,9 @@ export function DashboardPage() {
     })
     .sort((a, b) => b.credibilityIndex - a.credibilityIndex);
 
-  // Detection rate per class
+  // Detection rate per class (admin only)
   const classSummary = new Map<string, { sessions: number; correct: number; users: Set<string> }>();
-  enqueteurScores.forEach(score => {
+  visibleEnqueteurScores.forEach(score => {
     const user = knownUsers.find(u => u.id === score.userId);
     const cls = user?.classId || 'Sans classe';
     if (!classSummary.has(cls)) classSummary.set(cls, { sessions: 0, correct: 0, users: new Set() });
@@ -90,8 +122,8 @@ export function DashboardPage() {
     const data = {
       exportDate: new Date().toISOString(),
       statistics: { totalSessions: completedSessions.length, totalVotes, correctVotes, avgReliability, avgCredibility },
-      enqueteurScores,
-      personaScores,
+      enqueteurScores: visibleEnqueteurScores,
+      personaScores: visiblePersonaScores,
       sessions: completedSessions.map(s => ({
         id: s.id,
         personaIdA: s.personaIdA,
@@ -103,7 +135,7 @@ export function DashboardPage() {
         messageCountA: s.messages.chatA.length,
         messageCountB: s.messages.chatB.length,
       })),
-      votes: votes.map(v => ({
+      votes: visibleVotes.map(v => ({
         sessionId: v.sessionId,
         votedChat: v.votedChat,
         isCorrect: v.isCorrect,
@@ -121,7 +153,7 @@ export function DashboardPage() {
 
   const exportCSV = () => {
     const headers = ['Pseudo', 'Sessions', 'Détections correctes', 'Points', 'Bonus', 'Fiabilité %'];
-    const rows = enqueteurScores.map(s => [
+    const rows = visibleEnqueteurScores.map(s => [
       s.pseudo, s.totalSessions, s.correctDetections, s.totalPoints, s.bonusPoints, s.reliabilityIndex.toFixed(1),
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -139,8 +171,8 @@ export function DashboardPage() {
     { id: 'users', label: 'Utilisateurs' },
     { id: 'sessions', label: 'Sessions' },
     { id: 'personas', label: 'Personnas' },
-    { id: 'export', label: 'Export' },
-  ] as const;
+    ...(isAdmin ? [{ id: 'export', label: 'Export' }] : []),
+  ] as const satisfies readonly { id: string; label: string }[];
 
   return (
     <div
@@ -200,17 +232,19 @@ export function DashboardPage() {
               ))}
             </div>
 
-            <div className="mb-8 rounded-2xl px-6 py-5 flex items-center justify-between" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: MUTED }}>Coût estimé OpenAI (gpt-4o-mini)</p>
-                <p className="text-xs" style={{ color: MUTED }}>
-                  {(globalUsage?.promptTokens ?? 0).toLocaleString()} tokens entrée · {(globalUsage?.completionTokens ?? 0).toLocaleString()} tokens sortie
+            {isAdmin && (
+              <div className="mb-8 rounded-2xl px-6 py-5 flex items-center justify-between" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: MUTED }}>Coût estimé OpenAI (gpt-4o-mini)</p>
+                  <p className="text-xs" style={{ color: MUTED }}>
+                    {(globalUsage?.promptTokens ?? 0).toLocaleString()} tokens entrée · {(globalUsage?.completionTokens ?? 0).toLocaleString()} tokens sortie
+                  </p>
+                </div>
+                <p className="text-3xl font-bold tabular-nums" style={{ color: '#059669' }}>
+                  ${estimatedCostUSD.toFixed(4)}
                 </p>
               </div>
-              <p className="text-3xl font-bold tabular-nums" style={{ color: '#059669' }}>
-                ${estimatedCostUSD.toFixed(4)}
-              </p>
-            </div>
+            )}
 
             <div className="rounded-2xl p-6 mb-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
               <p className="text-xs font-semibold uppercase tracking-widest mb-6" style={{ color: MUTED }}>
@@ -240,7 +274,7 @@ export function DashboardPage() {
               <div>
                 <p className="text-sm mb-3" style={{ color: MUTED }}>Top enquêteurs</p>
                 <div className="space-y-2">
-                  {enqueteurScores
+                  {visibleEnqueteurScores
                     .sort((a, b) => b.totalPoints - a.totalPoints)
                     .slice(0, 10)
                     .map((score, i) => (
@@ -251,7 +285,7 @@ export function DashboardPage() {
                           <div
                             className="h-full rounded-full"
                             style={{
-                              width: `${(score.totalPoints / Math.max(...enqueteurScores.map(s => s.totalPoints), 1)) * 100}%`,
+                              width: `${(score.totalPoints / Math.max(...visibleEnqueteurScores.map(s => s.totalPoints), 1)) * 100}%`,
                               background: ACCENT,
                             }}
                           />
@@ -337,9 +371,9 @@ export function DashboardPage() {
 
         {/* Users */}
         {activeTab === 'users' && (() => {
-          // Group by pseudo (case-insensitive)
-          const groups = new Map<string, typeof knownUsers>();
-          [...knownUsers]
+          // Group by pseudo (case-insensitive), only visible students
+          const groups = new Map<string, typeof visibleStudents>();
+          [...visibleStudents]
             .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
             .forEach(u => {
               const key = u.pseudo.toLowerCase();
@@ -351,7 +385,7 @@ export function DashboardPage() {
           return (
             <div>
               <p className="text-xs mb-4" style={{ color: MUTED }}>
-                {groupEntries.length} utilisateur{groupEntries.length !== 1 ? 's' : ''} · {knownUsers.length} compte{knownUsers.length !== 1 ? 's' : ''}
+                {groupEntries.length} utilisateur{groupEntries.length !== 1 ? 's' : ''} · {visibleStudents.length} compte{visibleStudents.length !== 1 ? 's' : ''}
               </p>
               {groupEntries.length === 0 ? (
                 <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun utilisateur enregistré.</p>
@@ -463,7 +497,7 @@ export function DashboardPage() {
                                   <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: MUTED }}>Sessions</p>
                                   <div className="space-y-1.5">
                                     {groupSessionList.map(s => {
-                                      const vote = votes.find(v => v.sessionId === s.id);
+                                      const vote = visibleVotes.find(v => v.sessionId === s.id);
                                       const aiPersona = personas.find(p => p.id === (s.aiIsInChat === 'A' ? s.personaIdA : s.personaIdB));
                                       return (
                                         <div key={s.id} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg" style={{ background: CARD }}>
@@ -494,7 +528,7 @@ export function DashboardPage() {
                                     <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: MUTED }}>Personnages créés</p>
                                     <div className="space-y-1.5">
                                       {groupPersonas.map(p => {
-                                        const ps = personaScores.find(s => s.personaId === p.id);
+                                        const ps = visiblePersonaScores.find(s => s.personaId === p.id);
                                         return (
                                           <div key={p.id} className="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg" style={{ background: CARD }}>
                                             <div className="flex items-center gap-3">
@@ -557,7 +591,7 @@ export function DashboardPage() {
                   </thead>
                   <tbody>
                     {completedSessions.map(session => {
-                      const vote = votes.find(v => v.sessionId === session.id);
+                      const vote = visibleVotes.find(v => v.sessionId === session.id);
                       const personaA = personas.find(p => p.id === session.personaIdA);
                       const personaB = personas.find(p => p.id === session.personaIdB);
                       return (
@@ -595,13 +629,13 @@ export function DashboardPage() {
         {/* Personas */}
         {activeTab === 'personas' && (
           <div>
-            <p className="text-xs mb-4" style={{ color: MUTED }}>{personas.length} personnage{personas.length !== 1 ? 's' : ''} créé{personas.length !== 1 ? 's' : ''}</p>
-            {personas.length === 0 ? (
+            <p className="text-xs mb-4" style={{ color: MUTED }}>{visiblePersonas.length} personnage{visiblePersonas.length !== 1 ? 's' : ''} créé{visiblePersonas.length !== 1 ? 's' : ''}</p>
+            {visiblePersonas.length === 0 ? (
               <p className="py-8 text-sm" style={{ color: MUTED }}>Aucun personnage créé pour l'instant.</p>
             ) : (
               <div className="space-y-3">
-                {personas.map(persona => {
-                  const score = personaScores.find(s => s.personaId === persona.id);
+                {visiblePersonas.map(persona => {
+                  const score = visiblePersonaScores.find(s => s.personaId === persona.id);
                   return (
                     <div key={persona.id} className="rounded-2xl p-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
                       <div className="flex justify-between items-start mb-2">
