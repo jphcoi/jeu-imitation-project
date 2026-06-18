@@ -356,8 +356,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
            norm(u.classId) === norm(classId)
     );
 
-    if (!existingUser) return 'not_found';
-    if (existingUser.password && existingUser.password !== password?.trim()) return 'wrong_password';
+    if (!existingUser || !existingUser.password) return 'not_found';
+    if (existingUser.password !== password?.trim()) return 'wrong_password';
     dispatch({ type: 'SET_USER', payload: { ...existingUser } });
     return 'success';
   };
