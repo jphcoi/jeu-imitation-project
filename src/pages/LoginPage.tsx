@@ -84,9 +84,9 @@ export function LoginPage() {
     }
 
     if (!pseudo.trim()) { setError('Entrez un pseudo.'); return; }
-    if (!password.trim()) { setError('Entrez un mot de passe.'); return; }
 
     if (mode === 'register') {
+      if (!password.trim()) { setError('Entrez un mot de passe.'); return; }
       if (!/^\d{8}$/.test(password.trim())) {
         setError('Le mot de passe doit être votre date de naissance : 8 chiffres sans slash (ex : 01012005).');
         return;
