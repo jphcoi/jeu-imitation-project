@@ -356,8 +356,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
            norm(u.classId) === norm(classId)
     );
 
-    if (!existingUser || !existingUser.password) return 'not_found';
-    if (existingUser.password !== password?.trim()) return 'wrong_password';
+    if (!existingUser) {
+      const newUser: User = {
+        id: uuidv4(),
+        pseudo: pseudo.trim(),
+        role: 'student',
+        classId: norm(classId) || undefined,
+        createdAt: new Date(),
+      };
+      dispatch({ type: 'SET_USER', payload: newUser });
+      return 'success';
+    }
     dispatch({ type: 'SET_USER', payload: { ...existingUser } });
     return 'success';
   };
