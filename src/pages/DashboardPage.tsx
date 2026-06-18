@@ -171,6 +171,7 @@ export function DashboardPage() {
     { id: 'users', label: 'Utilisateurs' },
     { id: 'sessions', label: 'Sessions' },
     { id: 'personas', label: 'Personnas' },
+    ...(isAdmin ? [{ id: 'accounts', label: 'Comptes' }] : []),
     ...(isAdmin ? [{ id: 'export', label: 'Export' }] : []),
   ] as const satisfies readonly { id: string; label: string }[];
 
@@ -765,6 +766,53 @@ export function DashboardPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Accounts (admin only) */}
+        {activeTab === 'accounts' && (
+          <div>
+            <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${BORDER}` }}>
+              <div className="px-6 py-4 flex items-center justify-between" style={{ background: CARD, borderBottom: `1px solid ${BORDER}` }}>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: MUTED }}>
+                  Comptes élèves enregistrés
+                </p>
+                <p className="text-xs" style={{ color: MUTED }}>
+                  {knownUsers.filter(u => u.role === 'student').length} compte{knownUsers.filter(u => u.role === 'student').length !== 1 ? 's' : ''}
+                </p>
+              </div>
+              {knownUsers.filter(u => u.role === 'student').length === 0 ? (
+                <p className="px-6 py-8 text-sm" style={{ color: MUTED, background: BG }}>Aucun compte élève enregistré.</p>
+              ) : (
+                <div className="overflow-x-auto" style={{ background: BG }}>
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${BORDER}` }}>
+                        {['Pseudo', 'Classe', 'Mot de passe', 'Créé le'].map(h => (
+                          <th key={h} className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {knownUsers
+                        .filter(u => u.role === 'student')
+                        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                        .map(u => (
+                          <tr key={u.id} style={{ borderBottom: `1px solid ${BORDER}`, background: CARD }}>
+                            <td className="px-5 py-3 font-semibold text-sm" style={{ color: TEXT }}>{u.pseudo}</td>
+                            <td className="px-5 py-3 text-sm" style={{ color: MUTED }}>{u.classId || <span style={{ color: BORDER }}>—</span>}</td>
+                            <td className="px-5 py-3 font-mono text-sm" style={{ color: '#059669' }}>{u.password || <span style={{ color: MUTED, fontFamily: 'inherit' }}>—</span>}</td>
+                            <td className="px-5 py-3 text-xs" style={{ color: MUTED }}>{new Date(u.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <p className="mt-3 text-xs" style={{ color: MUTED }}>
+              Seul l'administrateur peut voir cette page. Les mots de passe sont les dates de naissance des élèves (format jjmmaaaa).
+            </p>
           </div>
         )}
 
