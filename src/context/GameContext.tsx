@@ -296,7 +296,8 @@ function gameReducer(state: GameState, action: Action): GameState {
 interface GameContextType {
   state: GameState;
   dispatch: React.Dispatch<Action>;
-  login: (pseudo: string, role: 'student' | 'teacher', classId?: string, schoolId?: string) => void;
+  login: (pseudo: string, role: 'student' | 'teacher' | 'admin', password?: string, classId?: string) => 'success' | 'wrong_password' | 'not_found';
+  register: (pseudo: string, password: string, classId?: string) => 'success' | 'already_exists';
   logout: () => void;
   createPersona: (persona: Omit<Persona, 'id' | 'createdAt' | 'createdBy'>) => void;
 }
@@ -328,28 +329,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  const login = (pseudo: string, role: 'student' | 'teacher', classId?: string, schoolId?: string) => {
+  const login = (pseudo: string, role: 'student' | 'teacher' | 'admin', password?: string, classId?: string): 'success' | 'wrong_password' | 'not_found' => {
+    if (role === 'teacher' || role === 'admin') {
+      const defaultPseudo = role === 'teacher' ? 'Enseignant' : 'Administrateur';
+      const existingUser = state.knownUsers.find(u => u.role === role);
+      if (existingUser) {
+        dispatch({ type: 'SET_USER', payload: { ...existingUser, classId } });
+      } else {
+        dispatch({ type: 'SET_USER', payload: { id: uuidv4(), pseudo: defaultPseudo, role, classId, createdAt: new Date() } });
+      }
+      return 'success';
+    }
+
     const existingUser = state.knownUsers.find(
-      u =>
-        u.pseudo.toLowerCase() === pseudo.toLowerCase() &&
-        u.classId === (classId || undefined) &&
-        u.schoolId === (schoolId || undefined)
+      u => u.pseudo.toLowerCase() === pseudo.toLowerCase() && u.classId === (classId || undefined)
     );
 
-    if (existingUser) {
-      // Always apply the role chosen at login — user may switch between élève and enseignant
-      dispatch({ type: 'SET_USER', payload: { ...existingUser, role } });
-    } else {
-      const user: User = {
-        id: uuidv4(),
-        pseudo,
-        role,
-        schoolId,
-        classId,
-        createdAt: new Date(),
-      };
-      dispatch({ type: 'SET_USER', payload: user });
-    }
+    if (!existingUser) return 'not_found';
+    if (existingUser.password && existingUser.password !== password) return 'wrong_password';
+    dispatch({ type: 'SET_USER', payload: { ...existingUser } });
+    return 'success';
+  };
+
+  const register = (pseudo: string, password: string, classId?: string): 'success' | 'already_exists' => {
+    const exists = state.knownUsers.some(
+      u => u.pseudo.toLowerCase() === pseudo.toLowerCase() && u.classId === (classId || undefined)
+    );
+    if (exists) return 'already_exists';
+    const user: User = { id: uuidv4(), pseudo, role: 'student', password, classId, createdAt: new Date() };
+    dispatch({ type: 'SET_USER', payload: user });
+    return 'success';
   };
 
   const logout = () => {
@@ -369,7 +378,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GameContext.Provider value={{ state, dispatch, login, logout, createPersona }}>
+    <GameContext.Provider value={{ state, dispatch, login, register, logout, createPersona }}>
       {children}
     </GameContext.Provider>
   );
