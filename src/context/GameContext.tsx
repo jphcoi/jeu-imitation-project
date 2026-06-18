@@ -337,7 +337,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  const login = (pseudo: string, role: 'student' | 'teacher' | 'admin', password?: string, classId?: string): 'success' | 'wrong_password' | 'not_found' => {
+  const login = (pseudo: string, role: 'student' | 'teacher' | 'admin', _password?: string, classId?: string): 'success' | 'wrong_password' | 'not_found' => {
     if (role === 'teacher' || role === 'admin') {
       const defaultPseudo = role === 'teacher' ? 'Enseignant' : 'Administrateur';
       const existingUser = state.knownUsers.find(u => u.role === role);
