@@ -13,7 +13,6 @@ export function HomePage() {
   const { currentUser, personas, sessions, enqueteurScores } = state;
 
   const sortedEnqueteurs = [...enqueteurScores].sort((a, b) => b.totalPoints - a.totalPoints);
-  const userRank = sortedEnqueteurs.findIndex(s => s.userId === currentUser?.id) + 1;
   const userScore = enqueteurScores.find(s => s.userId === currentUser?.id);
   const studentNeedsPersona =
     currentUser?.role === 'student' &&
@@ -69,6 +68,7 @@ export function HomePage() {
               label="Mes points"
               value={userScore?.totalPoints ?? 0}
               sub={`${userScore?.reliabilityIndex.toFixed(0) ?? 0}% fiabilité`}
+              highlight
             />
           </div>
 
@@ -94,13 +94,35 @@ export function HomePage() {
             />
           </div>
 
-          {/* Bottom links */}
-          <div className="grid grid-cols-2 gap-px shrink-0" style={{ background: BORDER }}>
-            <BottomLink
-              to="/scores"
-              label="Classements"
-              sub={userRank > 0 ? `Votre rang — #${userRank}` : 'Scores et statistiques'}
-            />
+          {/* Leaderboard + optional teacher link */}
+          <div className={`grid ${currentUser?.role === 'teacher' ? 'grid-cols-2' : 'grid-cols-1'} gap-px shrink-0`} style={{ background: BORDER }}>
+            {/* Mini leaderboard */}
+            <div className="px-8 py-5" style={{ background: CARD }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#6366f1' }}>Classement</p>
+                <Link to="/scores" className="text-xs font-medium transition-colors" style={{ color: MUTED }}
+                  onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
+                  onMouseLeave={e => (e.currentTarget.style.color = MUTED)}
+                >
+                  Voir tout →
+                </Link>
+              </div>
+              {sortedEnqueteurs.length === 0 ? (
+                <p className="text-xs" style={{ color: SUBTLE }}>Aucune session terminée pour l'instant.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {sortedEnqueteurs.slice(0, 5).map((s, i) => (
+                    <div key={s.userId} className="flex items-center gap-3">
+                      <span className="text-xs tabular-nums w-5 font-bold" style={{ color: i === 0 ? '#d97706' : SUBTLE }}>#{i + 1}</span>
+                      <span className="text-sm flex-1 truncate font-medium" style={{ color: s.userId === currentUser?.id ? '#6366f1' : TEXT }}>
+                        {s.pseudo}{s.userId === currentUser?.id ? ' (vous)' : ''}
+                      </span>
+                      <span className="text-xs tabular-nums font-semibold" style={{ color: '#6366f1' }}>{s.totalPoints} pts</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             {currentUser?.role === 'teacher' && (
               <BottomLink to="/dashboard" label="Tableau de bord" sub="Gérez les sessions" />
             )}
@@ -156,11 +178,11 @@ export function HomePage() {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function Stat({ label, value, sub }: { label: string; value: number; sub?: string }) {
+function Stat({ label, value, sub, highlight }: { label: string; value: number; sub?: string; highlight?: boolean }) {
   return (
-    <div className="px-8 py-5" style={{ background: CARD }}>
-      <p className="text-3xl font-bold tabular-nums" style={{ color: TEXT }}>{value}</p>
-      <p className="text-sm mt-1" style={{ color: MUTED }}>{label}</p>
+    <div className="px-8 py-5 relative" style={{ background: highlight ? '#f0f0ff' : CARD, borderTop: highlight ? '3px solid #6366f1' : '3px solid transparent' }}>
+      <p className="text-3xl font-bold tabular-nums" style={{ color: highlight ? '#6366f1' : TEXT }}>{value}</p>
+      <p className="text-sm mt-1 font-semibold" style={{ color: highlight ? '#6366f1' : MUTED }}>{label}</p>
       {sub && <p className="text-xs mt-0.5" style={{ color: SUBTLE }}>{sub}</p>}
     </div>
   );
@@ -220,7 +242,7 @@ function StepCard({ step, title, description, to, accent, cta, urgent }: {
   );
 }
 
-function BottomLink({ to, label, sub }: { to: string; label: string; sub: string }) {
+function BottomLink({ to, label, sub, score }: { to: string; label: string; sub: string; score?: number }) {
   return (
     <Link
       to={to}
@@ -233,13 +255,20 @@ function BottomLink({ to, label, sub }: { to: string; label: string; sub: string
         <p className="text-base font-bold" style={{ color: TEXT }}>{label}</p>
         <p className="text-xs mt-1" style={{ color: MUTED }}>{sub}</p>
       </div>
-      <svg
-        className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
-        style={{ color: MUTED }}
-        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-      </svg>
+      <div className="flex items-center gap-3">
+        {score !== undefined && (
+          <span className="text-sm font-bold tabular-nums px-3 py-1 rounded-full" style={{ background: '#6366f115', color: '#6366f1' }}>
+            {score} pts
+          </span>
+        )}
+        <svg
+          className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+          style={{ color: MUTED }}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </div>
     </Link>
   );
 }
