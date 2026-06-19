@@ -289,7 +289,7 @@ Français uniquement.`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-5.5',
           messages,
           max_tokens: 150,
           temperature: 0.9,
