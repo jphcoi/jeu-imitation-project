@@ -49,8 +49,29 @@ export function DashboardPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [resetingUserId, setResetingUserId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetResult, setResetResult] = useState<{ id: string; ok: boolean } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
+
+  const handleTeacherResetPassword = async (user: { id: string; pseudo: string; classId?: string }) => {
+    if (newPassword.trim().length < 8) return;
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'teacher-reset-password', pseudo: user.pseudo, classId: user.classId, newPassword: newPassword.trim() }),
+      });
+      const data = await res.json() as { result: string };
+      setResetResult({ id: user.id, ok: data.result === 'success' });
+    } catch {
+      setResetResult({ id: user.id, ok: false });
+    }
+    setResetingUserId(null);
+    setNewPassword('');
+    setTimeout(() => setResetResult(null), 3000);
+  };
 
   const startEdit = (p: typeof personas[0]) => {
     setEditingId(p.id);
@@ -581,28 +602,66 @@ export function DashboardPage() {
                                     <span style={{ color: MUTED }}>Inscrit le {new Date(user.createdAt).toLocaleDateString('fr-FR')}</span>
                                   </div>
                                   {!isSelf && (
-                                    deletingUserId === user.id ? (
-                                      <div className="flex items-center gap-1 shrink-0 ml-4">
+                                    <div className="flex items-center gap-1 shrink-0 ml-4">
+                                      {resetResult?.id === user.id && (
+                                        <span className="text-xs px-2 py-1 rounded-lg" style={{ background: resetResult.ok ? '#f0fdf4' : '#fef2f2', color: resetResult.ok ? '#15803d' : '#b91c1c' }}>
+                                          {resetResult.ok ? '✓ MDP réinitialisé' : '✗ Échec'}
+                                        </span>
+                                      )}
+                                      {resetingUserId === user.id ? (
+                                        <>
+                                          <input
+                                            type="text"
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            placeholder="Nouveau MDP (8+ car.)"
+                                            className="px-2 py-1 rounded-lg text-xs outline-none"
+                                            style={{ background: CARD, border: `1px solid ${BORDER}`, color: TEXT, width: '160px' }}
+                                          />
+                                          <button
+                                            onClick={() => handleTeacherResetPassword(user)}
+                                            disabled={newPassword.trim().length < 8}
+                                            className="px-2.5 py-1 rounded-lg font-medium text-white disabled:opacity-40"
+                                            style={{ background: ACCENT }}
+                                          >OK</button>
+                                          <button
+                                            onClick={() => { setResetingUserId(null); setNewPassword(''); }}
+                                            className="px-2.5 py-1 rounded-lg"
+                                            style={{ background: PANEL, color: MUTED }}
+                                          >✕</button>
+                                        </>
+                                      ) : (
                                         <button
-                                          onClick={() => { dispatch({ type: 'DELETE_USER', payload: user.id }); setDeletingUserId(null); }}
-                                          className="px-2.5 py-1 rounded-lg font-medium text-white"
-                                          style={{ background: '#dc2626' }}
-                                        >Confirmer</button>
-                                        <button
-                                          onClick={() => setDeletingUserId(null)}
-                                          className="px-2.5 py-1 rounded-lg"
+                                          onClick={() => { setResetingUserId(user.id); setNewPassword(''); }}
+                                          className="px-2.5 py-1 rounded-lg transition-colors text-xs"
                                           style={{ background: PANEL, color: MUTED }}
-                                        >Annuler</button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={() => setDeletingUserId(user.id)}
-                                        className="shrink-0 ml-4 px-2.5 py-1 rounded-lg transition-colors"
-                                        style={{ background: PANEL, color: MUTED }}
-                                        onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
-                                      >Supprimer</button>
-                                    )
+                                          onMouseEnter={e => { e.currentTarget.style.background = '#ede9fe'; e.currentTarget.style.color = ACCENT; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                                        >MDP</button>
+                                      )}
+                                      {deletingUserId === user.id ? (
+                                        <>
+                                          <button
+                                            onClick={() => { dispatch({ type: 'DELETE_USER', payload: user.id }); setDeletingUserId(null); }}
+                                            className="px-2.5 py-1 rounded-lg font-medium text-white"
+                                            style={{ background: '#dc2626' }}
+                                          >Confirmer</button>
+                                          <button
+                                            onClick={() => setDeletingUserId(null)}
+                                            className="px-2.5 py-1 rounded-lg"
+                                            style={{ background: PANEL, color: MUTED }}
+                                          >Annuler</button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          onClick={() => setDeletingUserId(user.id)}
+                                          className="px-2.5 py-1 rounded-lg transition-colors"
+                                          style={{ background: PANEL, color: MUTED }}
+                                          onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#dc2626'; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background = PANEL; e.currentTarget.style.color = MUTED; }}
+                                        >Supprimer</button>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               );

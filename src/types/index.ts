@@ -4,7 +4,9 @@ export interface User {
   role: 'student' | 'teacher' | 'admin';
   schoolId?: string;
   classId?: string;
+  email?: string;
   password?: string;
+  isGuest?: boolean;
   createdAt: Date;
 }
 

@@ -275,9 +275,28 @@ export function PlayPage() {
     setTimeout(() => setBannedWordWarning(null), 3000);
   };
 
+  const checkModeration = async (text: string): Promise<boolean> => {
+    if (containsBannedWords(text)) return true;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch('/api/moderate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const data = await res.json() as { flagged: boolean };
+      return data.flagged;
+    } catch {
+      return false;
+    }
+  };
+
   const sendMessageA = async () => {
     if (!inputA.trim() || !session) return;
-    if (containsBannedWords(inputA)) { showBannedWarning(); setInputA(''); return; }
+    if (await checkModeration(inputA)) { showBannedWarning(); setInputA(''); return; }
     const userMessage: Message = { id: uuidv4(), content: inputA.trim(), senderId: currentUser?.id || '', timestamp: new Date(), isFromAI: false };
     setMessagesA(prev => [...prev, userMessage]);
     const question = inputA.trim();
@@ -304,7 +323,7 @@ export function PlayPage() {
 
   const sendMessageB = async () => {
     if (!inputB.trim() || !session) return;
-    if (containsBannedWords(inputB)) { showBannedWarning(); setInputB(''); return; }
+    if (await checkModeration(inputB)) { showBannedWarning(); setInputB(''); return; }
     const userMessage: Message = { id: uuidv4(), content: inputB.trim(), senderId: currentUser?.id || '', timestamp: new Date(), isFromAI: false };
     setMessagesB(prev => [...prev, userMessage]);
     const question = inputB.trim();
@@ -329,9 +348,9 @@ export function PlayPage() {
     }
   };
 
-  const sendEnqueteMessage = () => {
+  const sendEnqueteMessage = async () => {
     if (!enqueteInput.trim()) return;
-    if (containsBannedWords(enqueteInput)) { showBannedWarning(); setEnqueteInput(''); return; }
+    if (await checkModeration(enqueteInput)) { showBannedWarning(); setEnqueteInput(''); return; }
     const content = enqueteInput.trim();
     setEnqueteMessages(prev => [...prev, { id: uuidv4(), content, senderId: currentUser?.id || 'enquete', timestamp: new Date(), isFromAI: false }]);
     setEnqueteInput('');

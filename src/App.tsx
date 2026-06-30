@@ -7,6 +7,8 @@ import { PersonaPage } from './pages/PersonaPage';
 import { PlayPage } from './pages/PlayPage';
 import { ScoresPage } from './pages/ScoresPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { state } = useGame();
@@ -91,6 +93,8 @@ function AppRoutes() {
           </TeacherRoute>
         }
       />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
