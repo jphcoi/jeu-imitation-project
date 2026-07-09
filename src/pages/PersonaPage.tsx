@@ -18,6 +18,14 @@ const MUTED = '#78716c';
 const ACCENT = '#6366f1';
 const PINK = '#db2777';
 
+// ─── Feedback types ─────────────────────────────────────────────────────────
+
+interface PersonaFeedback {
+  justification: string;
+  wasDetected: boolean;
+  timestamp: string;
+}
+
 // ─── Chatbot helpers ────────────────────────────────────────────────────────
 
 interface ConversationMessage {
@@ -70,6 +78,7 @@ export function PersonaPage() {
   const [listSubTab, setListSubTab] = useState<'mine' | 'classmates'>('mine');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ name: string; age: string; description: string; traits: string; interests: string; speakingStyle: string }>({ name: '', age: '', description: '', traits: '', interests: '', speakingStyle: '' });
+  const [personaFeedback, setPersonaFeedback] = useState<Record<string, PersonaFeedback[]>>({});
 
   // Match by pseudo so personas stay visible even if the user logged in under a different UUID
   const myPseudo = currentUser?.pseudo.toLowerCase();
@@ -95,11 +104,29 @@ export function PersonaPage() {
     setEditingId(null);
   };
 
-  const MAX_PERSONAS = 2;
+  const myPersonaIdsKey = myPersonas.map(p => p.id).join(',');
+  useEffect(() => {
+    if (!myPersonaIdsKey) return;
+    myPersonas.forEach(p => {
+      fetch('/api/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-persona-feedback', personaId: p.id }),
+      })
+        .then(r => r.json())
+        .then((data: { feedback?: PersonaFeedback[] }) => {
+          setPersonaFeedback(prev => ({ ...prev, [p.id]: data.feedback || [] }));
+        })
+        .catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myPersonaIdsKey]);
+
+  const MAX_PERSONAS = 1;
   const atLimit = myPersonas.length >= MAX_PERSONAS;
 
   const TABS = [
-    { id: 'chatbot' as Tab, label: 'Chatbot' },
+    { id: 'chatbot' as Tab, label: atLimit ? 'Améliorer' : 'Chatbot' },
     { id: 'manual' as Tab, label: 'Formulaire' },
     { id: 'list' as Tab, label: `Personas (${personas.length})` },
   ];
@@ -128,15 +155,14 @@ export function PersonaPage() {
         {/* Limit banner */}
         {atLimit && (
           <div className="mb-5 px-4 py-3 rounded-xl text-sm" style={{ background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047' }}>
-            Tu as atteint la limite de {MAX_PERSONAS} personas. Supprime un persona existant pour en créer un nouveau.
+            Tu as déjà un persona. Utilise l'onglet "Améliorer" pour le modifier avec le chatbot, ou supprime-le pour en créer un nouveau.
           </div>
         )}
 
         {/* Tabs */}
         <div className="flex gap-1 p-1 rounded-xl mb-6 w-fit" style={{ background: PANEL }}>
           {TABS.map(t => {
-            const isCreationTab = t.id === 'chatbot' || t.id === 'manual';
-            const disabled = isCreationTab && atLimit;
+            const disabled = t.id === 'manual' && atLimit;
             return (
               <button
                 key={t.id}
@@ -161,6 +187,7 @@ export function PersonaPage() {
             classId={currentUser?.classId || 'default'}
             onSaved={() => setTab('list')}
             createPersona={createPersona}
+            existingPersona={atLimit && myPersonas.length > 0 ? myPersonas[0] : undefined}
           />
         )}
 
@@ -217,6 +244,7 @@ export function PersonaPage() {
                       onEditFormChange={f => setEditForm(prev => ({ ...prev, ...f }))}
                       onSaveEdit={() => saveEdit(persona)}
                       onCancelEdit={() => setEditingId(null)}
+                      feedback={personaFeedback[persona.id]}
                     />
                   ))}
                 </div>
@@ -245,18 +273,28 @@ export function PersonaPage() {
 
 // ─── Chatbot creator ──────────────────────────────────────────────────────────
 
+function buildEditOpeningMsg(p: Persona): string {
+  const traitsStr = p.traits.length > 0 ? ` Traits : ${p.traits.join(', ')}.` : '';
+  const interestsStr = p.interests.length > 0 ? ` Intérêts : ${p.interests.join(', ')}.` : '';
+  const styleStr = p.speakingStyle ? ` Style d'expression : ${p.speakingStyle}.` : '';
+  return `Ton persona actuel s'appelle ${p.name}, ${p.age} ans. ${p.description}${traitsStr}${interestsStr}${styleStr}\n\nQu'est-ce que tu voudrais améliorer ou changer ?`;
+}
+
 function ChatbotCreator({
   classId,
   onSaved,
   createPersona,
+  existingPersona,
 }: {
   classId: string;
   onSaved: () => void;
   createPersona: (p: Omit<Persona, 'id' | 'createdAt' | 'createdBy'>) => void;
+  existingPersona?: Persona;
 }) {
   const { dispatch } = useGame();
+  const openingMessage = existingPersona ? buildEditOpeningMsg(existingPersona) : OPENING_MESSAGE;
   const [messages, setMessages] = useState<ConversationMessage[]>([
-    { id: uuidv4(), content: OPENING_MESSAGE, isFromUser: false },
+    { id: uuidv4(), content: openingMessage, isFromUser: false },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -337,8 +375,12 @@ function ChatbotCreator({
 
   const savePersona = () => {
     if (!extracted) return;
-    createPersona({ ...extracted, classId });
-    setMessages([{ id: uuidv4(), content: OPENING_MESSAGE, isFromUser: false }]);
+    if (existingPersona) {
+      dispatch({ type: 'UPDATE_PERSONA', payload: { ...existingPersona, ...extracted } });
+    } else {
+      createPersona({ ...extracted, classId });
+    }
+    setMessages([{ id: uuidv4(), content: openingMessage, isFromUser: false }]);
     setExtracted(null);
     setCanFinish(false);
     onSaved();
@@ -351,7 +393,7 @@ function ChatbotCreator({
       <div className="rounded-2xl p-6" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
         <div className="flex items-center gap-2 mb-5">
           <div className="w-2 h-2 rounded-full" style={{ background: '#10b981' }} />
-          <p className="text-sm font-semibold" style={{ color: TEXT }}>Persona généré</p>
+          <p className="text-sm font-semibold" style={{ color: TEXT }}>{existingPersona ? 'Persona mis à jour' : 'Persona généré'}</p>
         </div>
         <div className="space-y-3 mb-6">
           {[
@@ -411,7 +453,7 @@ function ChatbotCreator({
             onMouseEnter={e => (e.currentTarget.style.background = '#4f46e5')}
             onMouseLeave={e => (e.currentTarget.style.background = ACCENT)}
           >
-            Sauvegarder le persona
+            {existingPersona ? 'Mettre à jour le persona' : 'Sauvegarder le persona'}
           </button>
           <button
             onClick={() => setExtracted(null)}
@@ -770,7 +812,7 @@ function ManualCreator({
 // ─── Persona card ─────────────────────────────────────────────────────────────
 
 function PersonaCard({
-  persona, onDelete, onEdit, isEditing, editForm, onEditFormChange, onSaveEdit, onCancelEdit,
+  persona, onDelete, onEdit, isEditing, editForm, onEditFormChange, onSaveEdit, onCancelEdit, feedback,
 }: {
   persona: Persona;
   onDelete?: () => void;
@@ -780,6 +822,7 @@ function PersonaCard({
   onEditFormChange?: (f: Partial<typeof editForm>) => void;
   onSaveEdit?: () => void;
   onCancelEdit?: () => void;
+  feedback?: PersonaFeedback[];
 }) {
   return (
     <div className="rounded-2xl p-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
@@ -838,6 +881,64 @@ function PersonaCard({
             <p className="text-xs mt-2" style={{ color: MUTED }}>
               <span style={{ fontWeight: 500 }}>Style :</span> {persona.speakingStyle}
             </p>
+          )}
+
+          {feedback !== undefined && (
+            <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${BORDER}` }}>
+              {/* Section header */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: ACCENT }}>?</div>
+                <p className="text-xs font-semibold" style={{ color: TEXT }}>Retours des enquêteurs</p>
+                <p className="text-xs" style={{ color: MUTED }}>— ce qu'ils ont écrit après avoir joué contre ton IA</p>
+              </div>
+
+              {feedback.length === 0 ? (
+                <p className="text-xs" style={{ color: MUTED }}>Ton persona n'a pas encore été utilisé dans une partie.</p>
+              ) : (
+                <>
+                  {/* Stats row */}
+                  <div className="flex gap-3 mb-4">
+                    <div className="flex-1 rounded-xl px-3 py-2 text-center" style={{ background: PANEL }}>
+                      <p className="text-base font-bold" style={{ color: TEXT }}>{feedback.length}</p>
+                      <p className="text-xs" style={{ color: MUTED }}>partie{feedback.length > 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="flex-1 rounded-xl px-3 py-2 text-center" style={{ background: '#f0fdf4' }}>
+                      <p className="text-base font-bold" style={{ color: '#16a34a' }}>{feedback.filter(f => !f.wasDetected).length}</p>
+                      <p className="text-xs" style={{ color: '#16a34a' }}>humain convaincant</p>
+                    </div>
+                    <div className="flex-1 rounded-xl px-3 py-2 text-center" style={{ background: '#fef2f2' }}>
+                      <p className="text-base font-bold" style={{ color: '#dc2626' }}>{feedback.filter(f => f.wasDetected).length}</p>
+                      <p className="text-xs" style={{ color: '#dc2626' }}>IA repérée</p>
+                    </div>
+                  </div>
+
+                  {/* Feedback quotes */}
+                  <div className="space-y-2">
+                    {feedback.slice(-5).reverse().map((fb, i) => (
+                      <div key={i} className="rounded-xl p-3" style={{
+                        background: fb.wasDetected ? '#fef2f2' : '#f0fdf4',
+                        border: `1px solid ${fb.wasDetected ? '#fecaca' : '#bbf7d0'}`,
+                      }}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{
+                            background: fb.wasDetected ? '#dc2626' : '#16a34a',
+                            color: 'white',
+                          }}>
+                            {fb.wasDetected ? 'IA repérée' : 'IA non repérée'}
+                          </span>
+                          <span className="text-xs" style={{ color: MUTED }}>· verdict de l'enquêteur</span>
+                        </div>
+                        <p className="text-xs leading-relaxed" style={{ color: TEXT }}>
+                          <span style={{ color: MUTED, fontStyle: 'italic' }}>"</span>
+                          {fb.justification}
+                          <span style={{ color: MUTED, fontStyle: 'italic' }}>"</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </>
       )}

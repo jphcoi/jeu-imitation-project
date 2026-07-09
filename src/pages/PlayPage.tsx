@@ -76,6 +76,7 @@ export function PlayPage() {
   const [bannedWordWarning, setBannedWordWarning] = useState<string | null>(null);
   const [moderating, setModerating] = useState(false);
   const [role, setRole] = useState<'enqueteur' | 'enquete' | null>(null);
+  const [enqueteReady, setEnqueteReady] = useState(false);
   const [enqueteMessages, setEnqueteMessages] = useState<Message[]>([]);
   const [enqueteInput, setEnqueteInput] = useState('');
   const enqueteChatRef = useRef<HTMLDivElement>(null);
@@ -191,7 +192,8 @@ export function PlayPage() {
 
   const startSoloGame = () => {
     if (!personaA) return;
-    const pB = personaB || getRandomPersona(personaA.id);
+    // personaB may equal personaA when falling back from a multiplayer waiting room
+    const pB = (personaB && personaB.id !== personaA.id) ? personaB : getRandomPersona(personaA.id);
     setPersonaB(pB);
     setRole(null);
     const newSession: ChatSession = {
@@ -403,7 +405,7 @@ export function PlayPage() {
     setResult({ correct: isCorrect, points });
     dispatch({ type: 'ADD_VOTE', payload: { id: uuidv4(), sessionId: session.id, enqueteurId: currentUser?.id || '', votedChat: vote, justification: justification.trim(), isCorrect, timestamp: new Date() } });
     dispatch({ type: 'UPDATE_SESSION', payload: { ...session, status: 'completed', endTime: new Date(), messages: { chatA: messagesA, chatB: messagesB } } });
-    if (multiplayer.matchData) multiplayer.sendGameEnd();
+    if (multiplayer.matchData) multiplayer.sendGameEnd(isCorrect ? 'human' : 'ai');
     // Save to Redis for cross-device research export (fire-and-forget)
     fetch('/api/relay', {
       method: 'POST',
@@ -418,6 +420,8 @@ export function PlayPage() {
           enqueteurPseudo: currentUser?.pseudo ?? 'Enquêteur',
           personaAName: personaA?.name ?? '?',
           personaBName: personaB?.name ?? '?',
+          personaAId: personaA?.id ?? null,
+          personaBId: personaB?.id ?? null,
           aiIsInChat: session.aiIsInChat,
           gameMode: session.gameMode,
           chatA: messagesA.map(m => ({ from: m.isFromAI ? (personaA?.name ?? 'IA') : (currentUser?.pseudo ?? 'Enquêteur'), content: m.content, isFromAI: m.isFromAI })),
@@ -437,7 +441,7 @@ export function PlayPage() {
     setPhase('select'); setPersonaA(null); setPersonaB(null); setSession(null);
     setMessagesA([]); setMessagesB([]); setVote(null); setJustification(''); setResult(null);
     setRoomCode(''); setJoinCode(''); setGameMode('solo'); setRole(null);
-    setEnqueteMessages([]); setEnqueteInput('');
+    setEnqueteMessages([]); setEnqueteInput(''); setEnqueteReady(false);
   };
 
   // ── SELECT ────────────────────────────────────────────────────────────────
@@ -674,6 +678,42 @@ export function PlayPage() {
                 Annuler
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PLAYING — ENQUÊTÉ — instruction gate ─────────────────────────────────
+
+  if (phase === 'playing' && role === 'enquete' && !enqueteReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: BG, fontFamily: 'Inter, system-ui, sans-serif' }}>
+        <div className="w-full max-w-md">
+          <div className="rounded-2xl p-8" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl mb-5 mx-auto" style={{ background: `${ACCENT}12`, color: ACCENT }}>
+              👤
+            </div>
+            <h2 className="text-lg font-bold mb-3 text-center" style={{ color: TEXT }}>Vous êtes l'enquêté(e)</h2>
+            <p className="text-sm mb-4 text-center leading-relaxed" style={{ color: MUTED }}>
+              L'enquêteur va discuter avec vous <strong style={{ color: TEXT }}>et avec une IA</strong>. À la fin, il devra deviner lequel est humain.
+            </p>
+            <div className="rounded-xl p-4 mb-6" style={{ background: '#fef9c3', border: '1px solid #fde047' }}>
+              <p className="text-sm font-semibold mb-2" style={{ color: '#854d0e' }}>Règle importante</p>
+              <p className="text-sm leading-relaxed" style={{ color: '#854d0e' }}>
+                Répondez <strong>comme vous-même</strong>, pas comme un personnage ou une IA. Imiter une IA est considéré comme de la triche — et l'enquêteur s'en rend souvent compte de toute façon.
+              </p>
+            </div>
+            <p className="text-xs text-center mb-6" style={{ color: MUTED }}>
+              Votre objectif : convaincre l'enquêteur que vous êtes bien humain(e).
+            </p>
+            <button
+              onClick={() => setEnqueteReady(true)}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white"
+              style={{ background: ACCENT }}
+            >
+              J'ai compris — commencer
+            </button>
           </div>
         </div>
       </div>
@@ -921,7 +961,20 @@ export function PlayPage() {
             <p className="text-sm mb-6" style={{ color: MUTED }}>
               Vous avez échangé <span style={{ color: TEXT, fontWeight: 600 }}>{myCount}</span> messages.
             </p>
-            <p className="text-xs mb-8" style={{ color: MUTED }}>Avez-vous convaincu l'enquêteur que vous étiez humain ?</p>
+            {multiplayer.enqueteVerdict ? (
+              <div className="mb-8 rounded-xl px-4 py-3" style={{
+                background: multiplayer.enqueteVerdict === 'human' ? '#f0fdf4' : '#fef2f2',
+                border: `1px solid ${multiplayer.enqueteVerdict === 'human' ? '#bbf7d0' : '#fecaca'}`,
+              }}>
+                <p className="text-sm font-semibold" style={{ color: multiplayer.enqueteVerdict === 'human' ? '#16a34a' : '#dc2626' }}>
+                  {multiplayer.enqueteVerdict === 'human'
+                    ? "L'enquêteur a pensé que vous étiez humain !"
+                    : "L'enquêteur a pensé que vous étiez une IA."}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs mb-8" style={{ color: MUTED }}>Résultat en attente...</p>
+            )}
             <div className="flex gap-2">
               <button onClick={playAgain} className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white" style={{ background: ACCENT }}>Rejouer</button>
               <Link to="/" className="flex-1 py-2.5 rounded-xl text-sm font-medium text-center" style={{ background: PANEL, color: TEXT }}>Menu</Link>

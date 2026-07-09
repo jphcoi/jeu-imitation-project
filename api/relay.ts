@@ -345,7 +345,12 @@ export default async function handler(request: Request): Promise<Response> {
         const messages = rawMsgs.map((m: string) => JSON.parse(m));
         const typingRaw = results[2]?.result as string | null;
         const typingData = typingRaw ? JSON.parse(typingRaw) : null;
-        const gameEnded = !!results[3]?.result;
+        const gameEndRaw = results[3]?.result as string | null;
+        const gameEnded = !!gameEndRaw;
+        let enqueteVerdict: string | null = null;
+        if (gameEndRaw && gameEndRaw !== '1') {
+          try { enqueteVerdict = (JSON.parse(gameEndRaw) as { verdict: string }).verdict; } catch { /* ignore */ }
+        }
 
         const partnerTyping =
           typingData &&
@@ -359,6 +364,7 @@ export default async function handler(request: Request): Promise<Response> {
           messages,
           partnerTyping: !!partnerTyping,
           gameEnded,
+          enqueteVerdict,
           totalMessages: lastMsgIndex + messages.length,
         });
       }
@@ -400,8 +406,11 @@ export default async function handler(request: Request): Promise<Response> {
       // GAME END
       // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
       case 'game-end': {
-        const { roomCode } = body;
-        await redis('SET', `gameend:${roomCode}`, '1', 'EX', '600');
+        const { roomCode, verdictForEnquete } = body as { roomCode: string; verdictForEnquete?: string };
+        const payload = verdictForEnquete
+          ? JSON.stringify({ verdict: verdictForEnquete })
+          : '1';
+        await redis('SET', `gameend:${roomCode}`, payload, 'EX', '600');
         return json({ ok: true });
       }
 
@@ -416,6 +425,41 @@ export default async function handler(request: Request): Promise<Response> {
           ['SET', `research:session:${id}`, JSON.stringify(session)],
           ['SADD', 'research:sessions', id],
         ]);
+
+        // Store investigator justification as feedback on the AI persona(s)
+        const aiIsInChat = session.aiIsInChat as string | undefined;
+        const justification = (session.justification as string | undefined)?.trim();
+        if (justification) {
+          if (aiIsInChat === 'A' || aiIsInChat === 'B') {
+            const aiPersonaId = (aiIsInChat === 'A' ? session.personaAId : session.personaBId) as string | undefined;
+            if (aiPersonaId) {
+              await redis('RPUSH', `persona:feedback:${aiPersonaId}`, JSON.stringify({
+                justification,
+                wasDetected: session.isCorrect ?? false,
+                timestamp: session.timestamp || new Date().toISOString(),
+              }));
+            }
+          } else if (aiIsInChat === 'both') {
+            // Solo mode: both chats are AI — store feedback for each persona separately
+            const vote = session.vote as string | undefined;
+            const personaAId = session.personaAId as string | undefined;
+            const personaBId = session.personaBId as string | undefined;
+            const feedbackBase = { justification, timestamp: session.timestamp || new Date().toISOString() };
+            if (personaAId) {
+              await redis('RPUSH', `persona:feedback:${personaAId}`, JSON.stringify({
+                ...feedbackBase,
+                wasDetected: vote === 'A',
+              }));
+            }
+            if (personaBId && personaBId !== personaAId) {
+              await redis('RPUSH', `persona:feedback:${personaBId}`, JSON.stringify({
+                ...feedbackBase,
+                wasDetected: vote === 'B',
+              }));
+            }
+          }
+        }
+
         return json({ ok: true });
       }
 
@@ -480,6 +524,19 @@ export default async function handler(request: Request): Promise<Response> {
             completionTokens: parseInt((results[3]?.result as string) || '0', 10),
           },
         });
+      }
+
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+      // GET PERSONA FEEDBACK — investigator justifications for a persona
+      // 🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴🔴
+      case 'get-persona-feedback': {
+        const { personaId } = body as { personaId: string };
+        if (!personaId) return json({ feedback: [] });
+        const raw = await redis('LRANGE', `persona:feedback:${personaId}`, '0', '-1') as string[] | null;
+        const feedback = (raw || []).map((s: string) => {
+          try { return JSON.parse(s); } catch { return null; }
+        }).filter(Boolean);
+        return json({ feedback });
       }
 
       default:
