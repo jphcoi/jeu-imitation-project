@@ -76,7 +76,6 @@ export function PlayPage() {
   const [bannedWordWarning, setBannedWordWarning] = useState<string | null>(null);
   const [moderating, setModerating] = useState(false);
   const [role, setRole] = useState<'enqueteur' | 'enquete' | null>(null);
-  const [enqueteReady, setEnqueteReady] = useState(false);
   const [enqueteMessages, setEnqueteMessages] = useState<Message[]>([]);
   const [enqueteInput, setEnqueteInput] = useState('');
   const enqueteChatRef = useRef<HTMLDivElement>(null);
@@ -441,7 +440,7 @@ export function PlayPage() {
     setPhase('select'); setPersonaA(null); setPersonaB(null); setSession(null);
     setMessagesA([]); setMessagesB([]); setVote(null); setJustification(''); setResult(null);
     setRoomCode(''); setJoinCode(''); setGameMode('solo'); setRole(null);
-    setEnqueteMessages([]); setEnqueteInput(''); setEnqueteReady(false);
+    setEnqueteMessages([]); setEnqueteInput('');
   };
 
   // ── SELECT ────────────────────────────────────────────────────────────────
@@ -678,42 +677,6 @@ export function PlayPage() {
                 Annuler
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── PLAYING — ENQUÊTÉ — instruction gate ─────────────────────────────────
-
-  if (phase === 'playing' && role === 'enquete' && !enqueteReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: BG, fontFamily: 'Inter, system-ui, sans-serif' }}>
-        <div className="w-full max-w-md">
-          <div className="rounded-2xl p-8" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl mb-5 mx-auto" style={{ background: `${ACCENT}12`, color: ACCENT }}>
-              👤
-            </div>
-            <h2 className="text-lg font-bold mb-3 text-center" style={{ color: TEXT }}>Vous êtes l'enquêté(e)</h2>
-            <p className="text-sm mb-4 text-center leading-relaxed" style={{ color: MUTED }}>
-              L'enquêteur va discuter avec vous <strong style={{ color: TEXT }}>et avec une IA</strong>. À la fin, il devra deviner lequel est humain.
-            </p>
-            <div className="rounded-xl p-4 mb-6" style={{ background: '#fef9c3', border: '1px solid #fde047' }}>
-              <p className="text-sm font-semibold mb-2" style={{ color: '#854d0e' }}>Règle importante</p>
-              <p className="text-sm leading-relaxed" style={{ color: '#854d0e' }}>
-                Répondez <strong>comme vous-même</strong>, pas comme un personnage ou une IA. Imiter une IA est considéré comme de la triche — et l'enquêteur s'en rend souvent compte de toute façon.
-              </p>
-            </div>
-            <p className="text-xs text-center mb-6" style={{ color: MUTED }}>
-              Votre objectif : convaincre l'enquêteur que vous êtes bien humain(e).
-            </p>
-            <button
-              onClick={() => setEnqueteReady(true)}
-              className="w-full py-3 rounded-xl text-sm font-semibold text-white"
-              style={{ background: ACCENT }}
-            >
-              J'ai compris — commencer
-            </button>
           </div>
         </div>
       </div>
